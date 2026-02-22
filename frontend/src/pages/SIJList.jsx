@@ -264,28 +264,20 @@ export default function SIJList() {
           </div>
 
           {/* Date Filter */}
-          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                data-testid="sij-date-filter"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 hover:border-zinc-600 text-sm transition-all min-w-[200px]"
-              >
-                <CalendarDays className="w-4 h-4 text-zinc-500" />
-                <span className={selectedDate ? 'text-zinc-100' : 'text-zinc-500'}>
-                  {selectedDate ? format(selectedDate, 'd MMM yyyy', { locale: id }) : 'Semua tanggal'}
-                </span>
-                {selectedDate && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); clearDate(); }}
-                    className="ml-auto w-5 h-5 rounded-full bg-zinc-700 hover:bg-zinc-600 flex items-center justify-center"
-                  >
-                    <X className="w-3 h-3 text-zinc-300" />
-                  </button>
-                )}
-              </button>
-            </PopoverTrigger>
+          <div className="flex items-center gap-1">
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  data-testid="sij-date-filter"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 hover:border-zinc-600 text-sm transition-all min-w-[180px]"
+                >
+                  <CalendarDays className="w-4 h-4 text-zinc-500" />
+                  <span className={selectedDate ? 'text-zinc-100' : 'text-zinc-500'}>
+                    {selectedDate ? format(selectedDate, 'd MMM yyyy', { locale: id }) : 'Semua tanggal'}
+                  </span>
+                </button>
+              </PopoverTrigger>
             <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-700" align="end">
               <Calendar
                 mode="single"
