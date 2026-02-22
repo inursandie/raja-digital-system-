@@ -206,54 +206,11 @@ export default function SuperAdminDashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Pie Chart */}
+        {/* Donut Chart - SIJ per Shift */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="glass-card rounded-xl p-5">
           <h3 className="text-sm font-semibold text-zinc-100 mb-4">SIJ per Shift (Hari Ini)</h3>
-          {(() => {
-            const pieData = (data?.sij_per_shift || []).filter(d => d.value > 0);
-            const totalPie = pieData.reduce((s, d) => s + d.value, 0);
-            if (totalPie === 0) {
-              return (
-                <div className="flex flex-col items-center justify-center h-[180px] text-zinc-600">
-                  <div className="text-sm font-mono">Belum ada SIJ hari ini</div>
-                </div>
-              );
-            }
-            return (
-              <div className="flex flex-col items-center">
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={70}
-                      paddingAngle={4}
-                      dataKey="value"
-                      nameKey="name"
-                      stroke="none"
-                    >
-                      {pieData.map((entry, i) => (
-                        <Cell key={i} fill={entry.fill} opacity={0.9} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<ChartTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex gap-4 mt-1">
-                  {pieData.map((entry, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-xs font-mono">
-                      <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: entry.fill }} />
-                      <span className="text-zinc-400">{entry.name}: </span>
-                      <span className="font-bold" style={{ color: entry.fill }}>{entry.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
+          <DonutChart data={data?.sij_per_shift || []} />
         </motion.div>
 
         {/* Bar Chart */}
