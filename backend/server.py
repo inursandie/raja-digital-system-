@@ -166,6 +166,11 @@ async def create_sij(req: SIJCreateRequest, user: dict = Depends(require_admin))
         raise HTTPException(status_code=400, detail="Driver tidak ditemukan atau tidak aktif")
     now = datetime.now(JAKARTA_TZ)
     
+    # Price based on driver category
+    PRICE_MAP = {"reg": 40000, "premium": 60000}
+    category = driver.get("category", "reg")
+    amount = PRICE_MAP.get(category, 40000)
+    
     # Use custom date if provided, otherwise use today
     if req.date:
         try:
@@ -195,10 +200,11 @@ async def create_sij(req: SIJCreateRequest, user: dict = Depends(require_admin))
         "transaction_id": transaction_id,
         "driver_id": req.driver_id,
         "driver_name": driver['name'],
+        "category": category,
         "date": date_iso,
         "time": time_str,
         "sheets": req.sheets,
-        "amount": 40000,
+        "amount": amount,
         "qris_ref": req.qris_ref,
         "admin_id": user['user_id'],
         "admin_name": user['name'],
