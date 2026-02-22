@@ -470,6 +470,12 @@ export default function SIJList() {
                     <p className="text-xs text-zinc-500 font-mono">{selectedTx.driver_id}</p>
                   </div>
                   <div className="space-y-1">
+                    <div className="text-label">Kategori</div>
+                    <p className={`font-mono ${selectedTx.category === 'premium' ? 'text-amber-400' : 'text-zinc-300'}`}>
+                      {selectedTx.category === 'premium' ? 'PREMIUM' : 'REGULAR'}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
                     <div className="flex items-center gap-1.5 text-label">
                       <CalendarDays className="w-3 h-3" />
                       Tanggal
@@ -510,10 +516,16 @@ export default function SIJList() {
                 </div>
 
                 {/* Amount */}
-                <div className="bg-emerald-900/20 border border-emerald-500/20 rounded-lg p-3 text-center">
-                  <div className="text-xs text-emerald-400/70 mb-1">Total Pembayaran</div>
-                  <div className="text-xl font-bold text-emerald-400 font-mono">
-                    {formatRupiah(selectedTx.amount)}
+                <div className={`rounded-lg p-3 text-center border ${
+                  selectedTx.category === 'premium' 
+                    ? 'bg-amber-900/20 border-amber-500/20' 
+                    : 'bg-emerald-900/20 border-emerald-500/20'
+                }`}>
+                  <div className={`text-xs mb-1 ${selectedTx.category === 'premium' ? 'text-amber-400/70' : 'text-emerald-400/70'}`}>
+                    Total Pembayaran ({selectedTx.category === 'premium' ? 'Premium' : 'Regular'})
+                  </div>
+                  <div className={`text-xl font-bold font-mono ${selectedTx.category === 'premium' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {formatRupiah(selectedTx.amount || 40000)}
                   </div>
                 </div>
               </div>
