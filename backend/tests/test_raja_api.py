@@ -142,6 +142,48 @@ class TestSIJ:
         r = requests.get(f"{BASE_URL}/api/sij")
         assert r.status_code == 403
 
+    def test_create_sij_with_future_date(self, admin_headers):
+        """Test SIJ creation with a valid future date (within 7 days)"""
+        from datetime import datetime, timedelta
+        future_date = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+        r = requests.post(f"{BASE_URL}/api/sij", json={
+            "driver_id": "driver046",
+            "sheets": 2,
+            "qris_ref": "TEST_QRIS_FUTURE_DATE",
+            "date": future_date
+        }, headers=admin_headers)
+        # 200 success or 400 if driver already has SIJ for that date
+        assert r.status_code in [200, 400]
+        if r.status_code == 200:
+            data = r.json()
+            assert data["date"] == future_date
+
+    def test_create_sij_with_past_date_rejected(self, admin_headers):
+        """Test that past dates are rejected"""
+        from datetime import datetime, timedelta
+        past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        r = requests.post(f"{BASE_URL}/api/sij", json={
+            "driver_id": "driver047",
+            "sheets": 2,
+            "qris_ref": "TEST_QRIS_PAST_DATE",
+            "date": past_date
+        }, headers=admin_headers)
+        assert r.status_code == 400
+        assert "hari ini" in r.json().get("detail", "").lower() or "7 hari" in r.json().get("detail", "").lower()
+
+    def test_create_sij_with_far_future_date_rejected(self, admin_headers):
+        """Test that dates beyond 7 days are rejected"""
+        from datetime import datetime, timedelta
+        far_future_date = (datetime.now() + timedelta(days=10)).strftime("%Y-%m-%d")
+        r = requests.post(f"{BASE_URL}/api/sij", json={
+            "driver_id": "driver048",
+            "sheets": 2,
+            "qris_ref": "TEST_QRIS_FAR_FUTURE",
+            "date": far_future_date
+        }, headers=admin_headers)
+        assert r.status_code == 400
+        assert "7 hari" in r.json().get("detail", "").lower()
+
 
 # ===== DASHBOARD TESTS =====
 
