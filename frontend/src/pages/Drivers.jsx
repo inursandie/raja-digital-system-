@@ -263,7 +263,7 @@ export default function Drivers() {
                         )}
                       </div>
                     </td>
-                  </motion.tr>
+                  </tr>
                 ))}
               </tbody>
             </table>
