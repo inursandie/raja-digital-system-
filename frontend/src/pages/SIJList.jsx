@@ -278,7 +278,7 @@ export default function SIJList() {
                   </span>
                 </button>
               </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-700" align="end">
+              <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-700" align="end">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -291,7 +291,18 @@ export default function SIJList() {
                 }}
               />
             </PopoverContent>
-          </Popover>
+            </Popover>
+            {selectedDate && (
+              <button
+                type="button"
+                onClick={clearDate}
+                data-testid="sij-clear-date"
+                className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4 text-zinc-400" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats */}
