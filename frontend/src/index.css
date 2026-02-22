@@ -38,9 +38,6 @@
   * {
     @apply border-border;
   }
-  html {
-    @apply dark;
-  }
   body {
     @apply bg-zinc-950 text-zinc-100;
     font-family: 'Manrope', sans-serif;
