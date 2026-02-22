@@ -71,6 +71,13 @@ class SIJCreateRequest(BaseModel):
     driver_id: str
     sheets: int = 5
     qris_ref: str
+    date: Optional[str] = None  # YYYY-MM-DD, opsional (default: hari ini)
+
+
+class PrintNetworkRequest(BaseModel):
+    ip: str
+    port: int = 9100
+    hex_data: str
 
 
 class DriverUpdateRequest(BaseModel):
