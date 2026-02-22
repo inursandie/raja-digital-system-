@@ -114,34 +114,31 @@ function BarSVGChart({ data }) {
   if (!items.length) {
     return <div className="h-44 flex items-center justify-center text-xs text-zinc-600 font-mono">Belum ada data</div>;
   }
-  const maxVal = Math.max.apply(null, items.map(function(d) { return d.revenue || 0; }));
-  const svgH = 160;
-  const barW = 40;
-  const gap = 20;
-  const padL = 50;
-  const padB = 24;
-  const chartH = svgH - padB;
-  const svgW = padL + items.length * (barW + gap);
-
+  const maxVal = Math.max.apply(null, items.map(function(d) { return d.revenue || 0; })) || 1;
+  
   return (
-    <svg width="100%" height="160" viewBox={'0 0 ' + svgW + ' ' + svgH} preserveAspectRatio="none">
+    <div className="py-2 space-y-4">
       {items.map(function(d, i) {
-        const x = padL + i * (barW + gap);
-        const barH = maxVal > 0 ? ((d.revenue / maxVal) * (chartH - 10)) : 4;
-        const y = chartH - barH;
+        const pct = maxVal > 0 ? Math.round((d.revenue / maxVal) * 100) : 0;
+        const w = maxVal > 0 ? ((d.revenue / maxVal) * 100) + '%' : '0%';
         const label = d.name || d._id || '';
-        const val = d.revenue ? ('Rp ' + Math.floor(d.revenue / 1000) + 'K') : '0';
+        const val = d.revenue ? ('Rp ' + Math.floor(d.revenue / 1000) + 'K') : 'Rp 0';
         return (
-          <g key={i}>
-            <rect x={x} y={y} width={barW} height={barH} fill="#10b981" rx="3" opacity="0.9" />
-            <text x={x + barW / 2} y={svgH - 6} textAnchor="middle" fill="#71717a" fontSize="9" fontFamily="monospace">{label}</text>
-            <text x={x + barW / 2} y={y - 4} textAnchor="middle" fill="#10b981" fontSize="8" fontFamily="monospace">{val}</text>
-          </g>
+          <div key={i}>
+            <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+              <span className="text-zinc-300">{label}</span>
+              <span className="font-bold text-emerald-400">{val}</span>
+            </div>
+            <div className="h-3 bg-zinc-800/80 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400"
+                style={{ width: w, transition: 'width 1.2s cubic-bezier(0.4,0,0.2,1)' }}
+              />
+            </div>
+          </div>
         );
       })}
-      <line x1={padL - 4} y1={0} x2={padL - 4} y2={chartH} stroke="#27272a" strokeWidth="1" />
-      <line x1={padL - 4} y1={chartH} x2={svgW - 8} y2={chartH} stroke="#27272a" strokeWidth="1" />
-    </svg>
+    </div>
   );
 }
 
