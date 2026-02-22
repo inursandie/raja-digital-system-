@@ -127,6 +127,8 @@ const DonutChart = ({ data }) => {
   );
 };
 
+const ADMIN_NAMES = { admin1: 'Admin 1', admin2: 'Admin 2', admin3: 'Admin 3', admin4: 'Admin 4' };
+
 export default function SuperAdminDashboard() {
   const { getAuthHeader, API } = useAuth();
   const [data, setData] = useState(null);
