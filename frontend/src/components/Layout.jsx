@@ -63,8 +63,8 @@ export default function Layout() {
               }`}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
-              {item.label}
-              {isActive && <ChevronRight className="w-3 h-3 ml-auto text-amber-400" />}
+              <span className="truncate">{item.label}</span>
+              {isActive && <ChevronRight className="w-3 h-3 ml-auto text-amber-400 flex-shrink-0" />}
             </button>
           );
         })}
