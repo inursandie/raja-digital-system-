@@ -7,8 +7,7 @@ import {
   RefreshCw, Ban, CheckCircle2
 } from 'lucide-react';
 import {
-  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line
 } from 'recharts';
 import { toast } from 'sonner';
