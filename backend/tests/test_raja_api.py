@@ -122,7 +122,58 @@ class TestSIJ:
     def test_get_sij(self, admin_headers):
         r = requests.get(f"{BASE_URL}/api/sij", headers=admin_headers)
         assert r.status_code == 200
-        assert isinstance(r.json(), list)
+        data = r.json()
+        assert isinstance(data, list)
+        # Verify all returned transactions are active by default
+        for tx in data:
+            assert tx.get("status") == "active"
+    
+    def test_get_sij_with_date_filter(self, admin_headers):
+        """Test GET /api/sij with date filter for List SIJ page"""
+        from datetime import datetime
+        today = datetime.now().strftime("%Y-%m-%d")
+        r = requests.get(f"{BASE_URL}/api/sij?date={today}", headers=admin_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data, list)
+        # All transactions should be for the specified date
+        for tx in data:
+            assert tx.get("date") == today
+    
+    def test_get_sij_with_include_void(self, admin_headers):
+        """Test GET /api/sij with include_void parameter"""
+        r = requests.get(f"{BASE_URL}/api/sij?include_void=true", headers=admin_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data, list)
+        # Can contain both active and void transactions
+        # Verify response structure
+        if len(data) > 0:
+            tx = data[0]
+            assert "transaction_id" in tx
+            assert "driver_id" in tx
+            assert "driver_name" in tx
+            assert "date" in tx
+            assert "time" in tx
+            assert "sheets" in tx
+            assert "amount" in tx
+            assert "qris_ref" in tx
+            assert "admin_name" in tx
+            assert "status" in tx
+    
+    def test_get_sij_response_structure(self, admin_headers):
+        """Test that SIJ response has all required fields for List SIJ page"""
+        r = requests.get(f"{BASE_URL}/api/sij", headers=admin_headers)
+        assert r.status_code == 200
+        data = r.json()
+        if len(data) > 0:
+            tx = data[0]
+            # Required fields for List SIJ display
+            required_fields = ["transaction_id", "driver_id", "driver_name", "date", 
+                             "time", "sheets", "amount", "qris_ref", "admin_name", 
+                             "shift", "status"]
+            for field in required_fields:
+                assert field in tx, f"Missing field: {field}"
 
     def test_create_sij(self, admin_headers):
         # Use driver that likely has no SIJ today
