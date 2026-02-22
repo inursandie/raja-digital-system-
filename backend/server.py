@@ -165,14 +165,30 @@ async def create_sij(req: SIJCreateRequest, user: dict = Depends(require_admin))
     if not driver:
         raise HTTPException(status_code=400, detail="Driver tidak ditemukan atau tidak aktif")
     now = datetime.now(JAKARTA_TZ)
-    date_str = now.strftime("%Y%m%d")
-    date_iso = now.strftime("%Y-%m-%d")
+    
+    # Use custom date if provided, otherwise use today
+    if req.date:
+        try:
+            target_date = datetime.strptime(req.date, "%Y-%m-%d")
+            # Validate date is within allowed range (today to 7 days ahead)
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            max_date = today_start + timedelta(days=7)
+            if target_date.date() < today_start.date() or target_date.date() > max_date.date():
+                raise HTTPException(status_code=400, detail="Tanggal harus antara hari ini dan 7 hari ke depan")
+            date_iso = req.date
+            date_str = target_date.strftime("%Y%m%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Format tanggal tidak valid (gunakan YYYY-MM-DD)")
+    else:
+        date_str = now.strftime("%Y%m%d")
+        date_iso = now.strftime("%Y-%m-%d")
+    
     time_str = now.strftime("%H:%M:%S")
     existing = await db.sij_transactions.find_one({
         "driver_id": req.driver_id, "date": date_iso, "status": "active"
     })
     if existing:
-        raise HTTPException(status_code=400, detail=f"Driver {driver['name']} sudah memiliki SIJ aktif hari ini")
+        raise HTTPException(status_code=400, detail=f"Driver {driver['name']} sudah memiliki SIJ aktif untuk tanggal {date_iso}")
     random_suffix = str(random.randint(100, 999))
     transaction_id = f"{req.driver_id}{date_str}{random_suffix}"
     transaction = {
