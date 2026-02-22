@@ -78,51 +78,40 @@ const ChartTooltip = ({ active, payload, label, formatter }) => {
   );
 };
 
-const DonutChart = ({ data }) => {
+const ShiftChart = ({ data }) => {
   const total = (data || []).reduce((s, d) => s + (d.value || 0), 0);
-  if (total === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-44 text-zinc-600">
-        <div className="w-24 h-24 rounded-full border-4 border-zinc-800 flex items-center justify-center mb-3">
-          <span className="text-xs font-mono">0</span>
-        </div>
-        <span className="text-xs font-mono">Belum ada SIJ hari ini</span>
-      </div>
-    );
-  }
-  const cx = 80, cy = 80, r = 60, innerR = 38;
-  let startAngle = -Math.PI / 2;
-  const segments = (data || []).filter(d => d.value > 0).map(entry => {
-    const angle = (entry.value / total) * Math.PI * 2;
-    const endAngle = startAngle + angle;
-    const x1 = cx + Math.cos(startAngle) * r, y1 = cy + Math.sin(startAngle) * r;
-    const x2 = cx + Math.cos(endAngle) * r, y2 = cy + Math.sin(endAngle) * r;
-    const ix1 = cx + Math.cos(endAngle) * innerR, iy1 = cy + Math.sin(endAngle) * innerR;
-    const ix2 = cx + Math.cos(startAngle) * innerR, iy2 = cy + Math.sin(startAngle) * innerR;
-    const la = angle > Math.PI ? 1 : 0;
-    const d = `M ${x1} ${y1} A ${r} ${r} 0 ${la} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${innerR} ${innerR} 0 ${la} 0 ${ix2} ${iy2} Z`;
-    const result = { d, fill: entry.fill, value: entry.value, name: entry.name };
-    startAngle = endAngle;
-    return result;
-  });
   return (
-    <div className="flex flex-col items-center">
-      <svg width="160" height="160" viewBox="0 0 160 160">
-        {segments.map((seg, i) => (
-          <path key={i} d={seg.d} fill={seg.fill} opacity={0.9} stroke="#18181b" strokeWidth={2} />
-        ))}
-        <text x={cx} y={cy - 8} textAnchor="middle" fill="#f4f4f5" fontSize="20" fontWeight="bold" fontFamily="Chivo, sans-serif">{total}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="#71717a" fontSize="9" fontFamily="JetBrains Mono, monospace">TOTAL SIJ</text>
-      </svg>
-      <div className="flex gap-5 -mt-2">
-        {(data || []).map((entry, i) => (
-          <div key={i} className="flex items-center gap-1.5 text-xs font-mono">
-            <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: entry.fill }} />
-            <span className="text-zinc-400">{entry.name}:</span>
-            <span className="font-bold" style={{ color: entry.fill }}>{entry.value}</span>
-          </div>
-        ))}
+    <div className="py-2 space-y-5">
+      <div className="text-center mb-6">
+        <div className="text-5xl font-black text-white leading-none" style={{ fontFamily: 'Chivo, sans-serif' }}>{total}</div>
+        <div className="text-xs font-mono text-zinc-500 mt-1.5 uppercase tracking-widest">Total SIJ Hari Ini</div>
       </div>
+      {(data || []).map((d) => (
+        <div key={d.name}>
+          <div className="flex items-center justify-between text-xs font-mono mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.fill }} />
+              <span style={{ color: d.fill }}>{d.name}</span>
+            </div>
+            <span className="font-bold text-zinc-200">
+              {d.value}
+              <span className="text-zinc-600 ml-1 font-normal">
+                ({total > 0 ? Math.round(d.value / total * 100) : 0}%)
+              </span>
+            </span>
+          </div>
+          <div className="h-2.5 bg-zinc-800/80 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${total > 0 ? (d.value / total) * 100 : 0}%`,
+                backgroundColor: d.fill,
+                transition: 'width 1.2s cubic-bezier(0.4,0,0.2,1)'
+              }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
