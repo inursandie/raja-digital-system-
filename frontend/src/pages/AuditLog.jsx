@@ -168,7 +168,7 @@ export default function AuditLog() {
                         <span className="text-xs font-mono text-zinc-600">—</span>
                       )}
                     </td>
-                  </motion.tr>
+                  </tr>
                 ))}
               </tbody>
             </table>
