@@ -200,7 +200,7 @@ export default function SuperAdminDashboard() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="glass-card rounded-xl p-5">
           <h3 className="text-sm font-semibold text-zinc-100 mb-4">SIJ per Shift (Hari Ini)</h3>
-          <DonutChart data={data?.sij_per_shift || []} />
+          <ShiftChart data={data?.sij_per_shift || []} />
         </motion.div>
 
         {/* Bar Chart */}
