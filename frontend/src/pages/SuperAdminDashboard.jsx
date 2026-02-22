@@ -124,7 +124,7 @@ function BarSVGChart({ data }) {
   const svgW = padL + items.length * (barW + gap);
 
   return (
-    <svg width="100%" viewBox={'0 0 ' + svgW + ' ' + svgH} preserveAspectRatio="xMidYMid meet">
+    <svg width="100%" height="160" viewBox={'0 0 ' + svgW + ' ' + svgH} preserveAspectRatio="none">
       {items.map(function(d, i) {
         const x = padL + i * (barW + gap);
         const barH = maxVal > 0 ? ((d.revenue / maxVal) * (chartH - 10)) : 4;
