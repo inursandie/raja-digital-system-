@@ -11,10 +11,19 @@ import { id } from 'date-fns/locale';
 
 const RAJA_LOGO_URL = 'https://customer-assets.emergentagent.com/job_sij-manager/artifacts/hfoe4oj3_Logo-RAJA-Cooperation';
 
+// Price based on category
+const PRICE_MAP = {
+  reg: 40000,
+  premium: 60000,
+};
+
 const formatRupiah = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v);
 
 // Browser Print Receipt (fallback)
 const printReceiptBrowser = (tx, driverName) => {
+  const amount = tx.amount || 40000;
+  const amountFormatted = new Intl.NumberFormat('id-ID').format(amount);
+  
   const tickets = Array.from({ length: tx.sheets }, (_, i) => `
     <div class="ticket">
       <div class="header">
@@ -25,12 +34,13 @@ const printReceiptBrowser = (tx, driverName) => {
       <div class="tx-id">${tx.transaction_id}</div>
       <table class="details">
         <tr><td>Driver</td><td>${driverName}</td></tr>
+        <tr><td>Kategori</td><td>${tx.category === 'premium' ? 'PREMIUM' : 'REGULAR'}</td></tr>
         <tr><td>Tanggal</td><td>${tx.date}</td></tr>
         <tr><td>Jam</td><td>${tx.time}</td></tr>
         <tr><td>Admin</td><td>${tx.admin_name}</td></tr>
         <tr><td>Shift</td><td>${tx.shift}</td></tr>
         <tr><td>Lembar</td><td>${i + 1} / ${tx.sheets}</td></tr>
-        <tr><td>Jumlah</td><td>Rp 40.000</td></tr>
+        <tr><td>Jumlah</td><td>Rp ${amountFormatted}</td></tr>
       </table>
       <div class="footer">QRIS: ${tx.qris_ref}</div>
     </div>
@@ -77,16 +87,19 @@ const generateESCPOSCommands = (tx, driverName) => {
   const GS = '\x1D';
   const LF = '\x0A';
   
-  // Commands
-  const INIT = ESC + '@';                    // Initialize printer
-  const CENTER = ESC + 'a' + '\x01';         // Center align
-  const LEFT = ESC + 'a' + '\x00';           // Left align
-  const BOLD_ON = ESC + 'E' + '\x01';        // Bold on
-  const BOLD_OFF = ESC + 'E' + '\x00';       // Bold off
-  const DOUBLE_HEIGHT = GS + '!' + '\x11';   // Double height
-  const NORMAL_SIZE = GS + '!' + '\x00';     // Normal size
-  const CUT = GS + 'V' + '\x41' + '\x00';    // Paper cut
+  const INIT = ESC + '@';
+  const CENTER = ESC + 'a' + '\x01';
+  const LEFT = ESC + 'a' + '\x00';
+  const BOLD_ON = ESC + 'E' + '\x01';
+  const BOLD_OFF = ESC + 'E' + '\x00';
+  const DOUBLE_HEIGHT = GS + '!' + '\x11';
+  const NORMAL_SIZE = GS + '!' + '\x00';
+  const CUT = GS + 'V' + '\x41' + '\x00';
   const DASHES = '--------------------------------';
+  
+  const amount = tx.amount || 40000;
+  const amountFormatted = new Intl.NumberFormat('id-ID').format(amount);
+  const categoryLabel = tx.category === 'premium' ? 'PREMIUM' : 'REGULAR';
   
   let commands = [];
   
@@ -95,22 +108,20 @@ const generateESCPOSCommands = (tx, driverName) => {
     receipt += INIT;
     receipt += CENTER;
     
-    // Header
     receipt += BOLD_ON + DOUBLE_HEIGHT;
     receipt += 'RAJA DIGITAL SYSTEM' + LF;
     receipt += NORMAL_SIZE + BOLD_OFF;
     receipt += 'SIJ - Soetta Airport' + LF;
     receipt += DASHES + LF;
     
-    // Transaction ID
     receipt += BOLD_ON + DOUBLE_HEIGHT;
     receipt += tx.transaction_id + LF;
     receipt += NORMAL_SIZE + BOLD_OFF;
     receipt += DASHES + LF;
     
-    // Details
     receipt += LEFT;
     receipt += 'Driver   : ' + driverName.substring(0, 20) + LF;
+    receipt += 'Kategori : ' + categoryLabel + LF;
     receipt += 'Tanggal  : ' + tx.date + LF;
     receipt += 'Jam      : ' + tx.time + LF;
     receipt += 'Admin    : ' + tx.admin_name + LF;
@@ -120,31 +131,18 @@ const generateESCPOSCommands = (tx, driverName) => {
     receipt += CENTER;
     receipt += DASHES + LF;
     receipt += BOLD_ON + DOUBLE_HEIGHT;
-    receipt += 'Rp 40.000' + LF;
+    receipt += 'Rp ' + amountFormatted + LF;
     receipt += NORMAL_SIZE + BOLD_OFF;
     receipt += DASHES + LF;
     
-    // Footer
     receipt += 'QRIS: ' + tx.qris_ref + LF;
     receipt += LF + LF;
-    
-    // Cut paper after each ticket
     receipt += CUT;
     
     commands.push(receipt);
   }
   
   return commands.join('');
-};
-
-// Convert ESC/POS string to hex for display/copy
-const stringToHex = (str) => {
-  let hex = '';
-  for (let i = 0; i < str.length; i++) {
-    const code = str.charCodeAt(i);
-    hex += code.toString(16).padStart(2, '0').toUpperCase();
-  }
-  return hex;
 };
 
 // Download ESC/POS as binary file
@@ -178,6 +176,12 @@ export default function SIJInput() {
   // Date constraints: today to 7 days ahead
   const today = startOfDay(new Date());
   const maxDate = addDays(today, 7);
+
+  // Calculate price based on selected driver
+  const currentPrice = useMemo(() => {
+    if (!selectedDriver) return PRICE_MAP.reg;
+    return PRICE_MAP[selectedDriver.category] || PRICE_MAP.reg;
+  }, [selectedDriver]);
 
   useEffect(() => {
     axios.get(`${API}/drivers/active`, { headers: getAuthHeader() })
@@ -238,7 +242,6 @@ export default function SIJInput() {
         sheets: parseInt(form.sheets),
         qris_ref: form.qris_ref.trim(),
       };
-      // Add date if selected (otherwise backend uses today)
       if (form.date) {
         payload.date = format(form.date, 'yyyy-MM-dd');
       }
@@ -336,13 +339,15 @@ export default function SIJInput() {
                                   <div>
                                     <span className="text-zinc-100 text-sm font-medium">{d.name}</span>
                                     <span className={`ml-2 text-xs font-mono ${d.category === 'premium' ? 'text-amber-400' : 'text-zinc-500'}`}>
-                                      {d.category.toUpperCase()}
+                                      {d.category === 'premium' ? 'PREMIUM' : 'REGULAR'}
                                     </span>
                                   </div>
                                   <span className="text-xs font-mono text-zinc-500">{d.plate}</span>
                                 </div>
                                 <div className="text-xs text-zinc-500 mt-0.5">
-                                  {d.driver_id} • {d.phone}
+                                  {d.driver_id} • {d.phone} • <span className={d.category === 'premium' ? 'text-amber-400' : 'text-emerald-400'}>
+                                    {formatRupiah(PRICE_MAP[d.category] || PRICE_MAP.reg)}
+                                  </span>
                                 </div>
                               </button>
                             ))
@@ -363,7 +368,7 @@ export default function SIJInput() {
                       <div className="flex-1">
                         <span className="text-emerald-400 font-medium">{selectedDriver.name}</span>
                         <span className={`ml-2 font-mono ${selectedDriver.category === 'premium' ? 'text-amber-400' : 'text-zinc-400'}`}>
-                          {selectedDriver.category.toUpperCase()}
+                          {selectedDriver.category === 'premium' ? 'PREMIUM' : 'REGULAR'}
                         </span>
                       </div>
                       <span className="text-zinc-500">{selectedDriver.phone}</span>
@@ -442,11 +447,20 @@ export default function SIJInput() {
                   </div>
                 </div>
 
-                {/* Amount (fixed) */}
+                {/* Amount (dynamic based on category) */}
                 <div>
                   <label className="text-label block mb-2">Jumlah Pembayaran</label>
-                  <div className="px-4 py-3 rounded-lg bg-zinc-900/50 border border-zinc-800 text-emerald-400 font-mono font-bold text-sm">
-                    Rp 40.000 (tetap)
+                  <div className={`px-4 py-3 rounded-lg border font-mono font-bold text-sm flex items-center justify-between ${
+                    selectedDriver?.category === 'premium' 
+                      ? 'bg-amber-900/20 border-amber-500/30 text-amber-400' 
+                      : 'bg-emerald-900/20 border-emerald-500/30 text-emerald-400'
+                  }`}>
+                    <span>{formatRupiah(currentPrice)}</span>
+                    <span className={`text-xs font-normal ${
+                      selectedDriver?.category === 'premium' ? 'text-amber-400/70' : 'text-emerald-400/70'
+                    }`}>
+                      {selectedDriver?.category === 'premium' ? 'Premium' : 'Regular'}
+                    </span>
                   </div>
                 </div>
 
@@ -514,11 +528,30 @@ export default function SIJInput() {
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-label">Driver</span><p className="text-zinc-100 mt-0.5">{result.driver_name}</p></div>
+                <div>
+                  <span className="text-label">Kategori</span>
+                  <p className={`mt-0.5 font-mono ${result.category === 'premium' ? 'text-amber-400' : 'text-zinc-300'}`}>
+                    {result.category === 'premium' ? 'PREMIUM' : 'REGULAR'}
+                  </p>
+                </div>
                 <div><span className="text-label">Tanggal</span><p className="text-zinc-100 mt-0.5 font-mono">{result.date}</p></div>
                 <div><span className="text-label">Jam</span><p className="text-zinc-100 mt-0.5 font-mono">{result.time}</p></div>
                 <div><span className="text-label">Sheet</span><p className="text-zinc-100 mt-0.5">{result.sheets} lembar</p></div>
                 <div><span className="text-label">Admin</span><p className="text-zinc-100 mt-0.5">{result.admin_name}</p></div>
-                <div><span className="text-label">Jumlah</span><p className="text-emerald-400 mt-0.5 font-mono font-bold">{formatRupiah(result.amount)}</p></div>
+              </div>
+
+              {/* Amount highlight */}
+              <div className={`rounded-lg p-3 text-center border ${
+                result.category === 'premium' 
+                  ? 'bg-amber-900/20 border-amber-500/30' 
+                  : 'bg-emerald-900/20 border-emerald-500/30'
+              }`}>
+                <div className={`text-xs mb-1 ${result.category === 'premium' ? 'text-amber-400/70' : 'text-emerald-400/70'}`}>
+                  Total Pembayaran ({result.category === 'premium' ? 'Premium' : 'Regular'})
+                </div>
+                <div className={`text-xl font-bold font-mono ${result.category === 'premium' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {formatRupiah(result.amount)}
+                </div>
               </div>
 
               {/* Print Options */}
