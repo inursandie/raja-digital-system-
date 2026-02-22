@@ -46,6 +46,21 @@ Airport taxi cooperative dashboard untuk 100-1000 driver Grab di Bandara Soekarn
 
 ## What's Been Implemented
 
+### 2026-02-22 - List SIJ Feature
+**New Page** (`/app/frontend/src/pages/SIJList.jsx`):
+- ✅ Halaman riwayat transaksi SIJ yang dapat diakses Admin & SuperAdmin
+- ✅ Pencarian berdasarkan nama driver (real-time filtering)
+- ✅ Filter tanggal dengan calendar picker
+- ✅ Tabel dengan pagination (15 per halaman)
+- ✅ Modal detail dengan informasi lengkap SIJ
+- ✅ Tombol cetak ulang: Cetak Browser + Download ESC/POS
+
+**Navigation Update** (`/app/frontend/src/components/Layout.jsx`):
+- ✅ Menu "List SIJ" ditambahkan di sidebar untuk Admin & SuperAdmin
+
+**Backend Update** (`/app/backend/server.py`):
+- ✅ GET /api/sij mendukung parameter `include_void` untuk melihat transaksi void
+
 ### 2026-02-22 - P0 Features Complete
 **New SIJ Input Features** (`/app/frontend/src/pages/SIJInput.jsx`):
 - ✅ Searchable driver input dengan real-time filtering (name, ID, plate, phone)
