@@ -163,12 +163,10 @@ export default function AdminDashboard() {
               </thead>
               <tbody>
                 {data?.mismatch_list?.map((driver, i) => (
-                  <motion.tr
+                  <tr
                     key={driver.driver_id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="border-b border-zinc-800/30 hover:bg-white/3 transition-colors"
+                    style={{ opacity: 1, animationDelay: `${i * 50}ms` }}
+                    className="border-b border-zinc-800/30 hover:bg-white/5 transition-colors"
                   >
                     <td className="px-5 py-3 font-mono text-xs text-zinc-400">{driver.driver_id}</td>
                     <td className="px-5 py-3 text-zinc-100 font-medium">{driver.name}</td>
