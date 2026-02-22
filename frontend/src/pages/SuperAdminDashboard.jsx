@@ -5,7 +5,20 @@ import { motion } from 'framer-motion';
 import { TrendingUp, DollarSign, Users, BarChart2, AlertTriangle, RefreshCw, Ban } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { toast } from 'sonner';
-import { StatusBadge } from './AdminDashboard';
+
+function StatusBadge({ status }) {
+  const map = {
+    active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    warning: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    suspend: 'bg-red-500/10 text-red-400 border-red-500/20',
+  };
+  const labels = { active: 'Aktif', warning: 'Warning', suspend: 'Suspend' };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono border ${map[status] || 'text-zinc-400 border-zinc-700'}`}>
+      {labels[status] || status}
+    </span>
+  );
+}
 
 function useCountUp(target) {
   const [count, setCount] = useState(0);
