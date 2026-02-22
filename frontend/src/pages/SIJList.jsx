@@ -18,6 +18,10 @@ const formatRupiah = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', 
 
 // Browser Print Receipt
 const printReceiptBrowser = (tx) => {
+  const amount = tx.amount || 40000;
+  const amountFormatted = new Intl.NumberFormat('id-ID').format(amount);
+  const categoryLabel = tx.category === 'premium' ? 'PREMIUM' : 'REGULAR';
+  
   const tickets = Array.from({ length: tx.sheets }, (_, i) => `
     <div class="ticket">
       <div class="header">
@@ -28,12 +32,13 @@ const printReceiptBrowser = (tx) => {
       <div class="tx-id">${tx.transaction_id}</div>
       <table class="details">
         <tr><td>Driver</td><td>${tx.driver_name}</td></tr>
+        <tr><td>Kategori</td><td>${categoryLabel}</td></tr>
         <tr><td>Tanggal</td><td>${tx.date}</td></tr>
         <tr><td>Jam</td><td>${tx.time}</td></tr>
         <tr><td>Admin</td><td>${tx.admin_name}</td></tr>
         <tr><td>Shift</td><td>${tx.shift}</td></tr>
         <tr><td>Lembar</td><td>${i + 1} / ${tx.sheets}</td></tr>
-        <tr><td>Jumlah</td><td>Rp 40.000</td></tr>
+        <tr><td>Jumlah</td><td>Rp ${amountFormatted}</td></tr>
       </table>
       <div class="footer">QRIS: ${tx.qris_ref}</div>
     </div>
