@@ -108,6 +108,7 @@ Airport taxi cooperative dashboard untuk 100-1000 driver Grab di Bandara Soekarn
 - ✅ Date picker dengan validasi 7 hari ke depan
 - ✅ Thermal printer ESC/POS support
 - ✅ Fixed bar chart rendering
+- ✅ **List SIJ page** dengan search, date filter, detail modal, dan reprint
 
 ### P1 - Next Sprint
 - [ ] Halaman detail driver (history SIJ per driver)
