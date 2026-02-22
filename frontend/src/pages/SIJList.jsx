@@ -95,6 +95,10 @@ const generateESCPOSCommands = (tx) => {
   const CUT = GS + 'V' + '\x41' + '\x00';
   const DASHES = '--------------------------------';
   
+  const amount = tx.amount || 40000;
+  const amountFormatted = new Intl.NumberFormat('id-ID').format(amount);
+  const categoryLabel = tx.category === 'premium' ? 'PREMIUM' : 'REGULAR';
+  
   let commands = [];
   
   for (let i = 0; i < tx.sheets; i++) {
@@ -115,6 +119,7 @@ const generateESCPOSCommands = (tx) => {
     
     receipt += LEFT;
     receipt += 'Driver   : ' + (tx.driver_name || '').substring(0, 20) + LF;
+    receipt += 'Kategori : ' + categoryLabel + LF;
     receipt += 'Tanggal  : ' + tx.date + LF;
     receipt += 'Jam      : ' + tx.time + LF;
     receipt += 'Admin    : ' + tx.admin_name + LF;
@@ -124,7 +129,7 @@ const generateESCPOSCommands = (tx) => {
     receipt += CENTER;
     receipt += DASHES + LF;
     receipt += BOLD_ON + DOUBLE_HEIGHT;
-    receipt += 'Rp 40.000' + LF;
+    receipt += 'Rp ' + amountFormatted + LF;
     receipt += NORMAL_SIZE + BOLD_OFF;
     receipt += DASHES + LF;
     
