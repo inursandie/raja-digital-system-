@@ -262,7 +262,7 @@ export default function SuperAdminDashboard() {
               </thead>
               <tbody>
                 {(data?.driver_ranking || []).map((d, i) => (
-                  <tr key={d.driver_id} className="border-b border-zinc-800/30 hover:bg-white/3 transition-colors">
+                  <tr key={d.driver_id} className="border-b border-zinc-800/30 hover:bg-white/5 transition-colors">
                     <td className="px-4 py-3">
                       <span className={`font-mono text-xs font-bold ${i === 0 ? 'text-amber-400' : i === 1 ? 'text-zinc-300' : i === 2 ? 'text-orange-400' : 'text-zinc-500'}`}>
                         #{i + 1}
