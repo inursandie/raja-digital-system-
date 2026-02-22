@@ -212,11 +212,8 @@ export default function Drivers() {
               </thead>
               <tbody>
                 {drivers.map((d, i) => (
-                  <motion.tr key={d.driver_id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.02 }}
-                    className="border-b border-zinc-800/30 hover:bg-white/3 transition-colors">
+                  <tr key={d.driver_id}
+                    className="border-b border-zinc-800/30 hover:bg-white/5 transition-colors">
                     <td className="px-4 py-3 font-mono text-xs text-zinc-400">{d.driver_id}</td>
                     <td className="px-4 py-3 text-zinc-100 font-medium">{d.name}</td>
                     <td className="px-4 py-3 font-mono text-xs text-zinc-400">{d.plate}</td>
