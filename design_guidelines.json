@@ -1,0 +1,157 @@
+{
+  "project_name": "RAJA Digital System v1.0",
+  "design_philosophy": {
+    "identity": "The Anti-AI Designer (E1)",
+    "core_principles": [
+      "Fusion over Imitation: Mix Airport Utility with Fintech Precision",
+      "Emotion First: The feeling of a high-tech night-shift command center",
+      "Content is King: Data clarity is paramount, but style makes it usable",
+      "Negative Space: Use gap-6 or gap-8 to let data breathe",
+      "Contrast: High contrast for readability in dark environments"
+    ],
+    "anti_patterns": [
+      "No purple/teal gradients (unless specific status)",
+      "No 'Inter' for headings",
+      "No centered layouts for dashboards",
+      "No gradient overload (>20%)"
+    ]
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Chivo, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-black tracking-tighter leading-tight",
+      "h2": "text-3xl md:text-4xl font-bold tracking-tight",
+      "h3": "text-2xl font-bold tracking-tight",
+      "body": "text-base font-medium leading-relaxed text-zinc-400",
+      "label": "text-xs font-mono uppercase tracking-widest text-zinc-500"
+    },
+    "installation": "Ensure fonts are imported via Google Fonts in index.html or CSS."
+  },
+  "colors": {
+    "theme": "dark",
+    "palette": {
+      "background": "#09090b",
+      "foreground": "#fafafa",
+      "card": "rgba(24, 24, 27, 0.6)",
+      "primary": "#f59e0b",
+      "primary_foreground": "#000000",
+      "secondary": "#27272a",
+      "secondary_foreground": "#fafafa",
+      "accent": "#f59e0b",
+      "destructive": "#ef4444",
+      "success": "#10b981",
+      "info": "#0ea5e9",
+      "border": "#27272a"
+    },
+    "gradients": {
+      "glass": "backdrop-blur-xl bg-zinc-900/60 border border-white/10 shadow-2xl",
+      "glow_primary": "bg-amber-500/20 blur-3xl",
+      "glow_success": "bg-emerald-500/20 blur-3xl"
+    },
+    "charts": {
+      "sij": "#f59e0b",
+      "revenue": "#10b981",
+      "drivers": "#0ea5e9",
+      "mismatch": "#ef4444",
+      "tooltip_bg": "#18181b"
+    }
+  },
+  "layout_strategy": {
+    "grid_system": "Bento Grid (Mode B: High Density)",
+    "container": "max-w-[1600px] mx-auto p-4 md:p-8",
+    "spacing": {
+      "section_gap": "gap-8",
+      "card_padding": "p-6",
+      "internal_gap": "gap-4"
+    },
+    "z_index": {
+      "toast": 50,
+      "modal": 40,
+      "nav": 30,
+      "content": 10,
+      "background": 0
+    },
+    "mobile_first": true
+  },
+  "components": {
+    "buttons": {
+      "style": "rounded-sm font-bold uppercase tracking-wide text-sm transition-all duration-200",
+      "primary": "bg-amber-500 text-black hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]",
+      "secondary": "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white border border-zinc-700",
+      "destructive": "bg-red-900/30 text-red-500 hover:bg-red-900/50 border border-red-900"
+    },
+    "cards": {
+      "style": "rounded-lg border border-white/5 bg-zinc-900/40 backdrop-blur-md shadow-lg hover:border-white/10 transition-colors",
+      "kpi": "relative overflow-hidden group"
+    },
+    "inputs": {
+      "style": "bg-zinc-950/50 border-zinc-800 focus:border-amber-500/50 focus:ring-amber-500/20 rounded-md text-zinc-100 placeholder:text-zinc-600"
+    },
+    "tables": {
+      "style": "w-full text-sm text-left text-zinc-400",
+      "header": "text-xs uppercase bg-zinc-900/50 text-zinc-500 font-mono tracking-wider py-3 px-4",
+      "row": "border-b border-zinc-800/50 hover:bg-white/5 transition-colors py-3 px-4"
+    },
+    "charts": {
+      "library": "recharts",
+      "style": "font-mono text-xs text-zinc-500"
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "transitions": {
+      "default": { "duration": 0.3, "ease": "easeInOut" },
+      "spring": { "type": "spring", "stiffness": 300, "damping": 30 },
+      "stagger": 0.1
+    },
+    "animations": {
+      "fade_in": { "initial": { "opacity": 0 }, "animate": { "opacity": 1 } },
+      "slide_up": { "initial": { "y": 20, "opacity": 0 }, "animate": { "y": 0, "opacity": 1 } },
+      "scale_in": { "initial": { "scale": 0.95, "opacity": 0 }, "animate": { "scale": 1, "opacity": 1 } }
+    }
+  },
+  "assets": {
+    "images": {
+      "login_bg": {
+        "url": "https://images.unsplash.com/photo-1750112392818-3d20e252606a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBhaXJwb3J0JTIwcnVud2F5JTIwbmlnaHQlMjBhYnN0cmFjdCUyMGRhcmt8ZW58MHx8fHwxNzcxNzI1MzA3fDA&ixlib=rb-4.1.0&q=85",
+        "alt": "Airport Runway Night",
+        "overlay": "bg-black/70 backdrop-blur-sm"
+      },
+      "icons_library": "lucide-react"
+    }
+  },
+  "accessibility": {
+    "contrast_check": "Ensure amber text on black meets 4.5:1 ratio (use amber-500, not 400 for text)",
+    "focus_states": "ring-2 ring-amber-500 ring-offset-2 ring-offset-zinc-950",
+    "aria_labels": "Required for all icon-only buttons"
+  },
+  "implementation_steps": [
+    "1. Setup Theme: Configure tailwind.config.js with colors and fonts.",
+    "2. Install Deps: `yarn add framer-motion @radix-ui/react-icons lucide-react recharts clsx tailwind-merge`",
+    "3. Global CSS: Add @import url for Google Fonts (Chivo, Manrope, JetBrains Mono).",
+    "4. Create Layouts: Build Sidebar (responsive) and Dashboard Shell.",
+    "5. Build Components: KPI Cards, Charts, Tables using glassmorphism styles.",
+    "6. Assemble Pages: Login, Dashboard, Drivers, SIJ Input.",
+    "7. Polish: Add framer-motion animations to page transitions and list items."
+  ],
+  "universal_guidelines": [
+    "Avoid 'AI slop' aesthetic (generic centered layouts, uniform styling).",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "Do NOT apply universal transition (transition: all).",
+    "Do NOT center align the app container.",
+    "Use modern button styles (pill-shaped or sharp) with interaction animations.",
+    "NEVER use AI assistant Emoji characters.",
+    "Every interaction needs micro-animations.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "Subtle grain textures/noise overlays separate good from extraordinary.",
+    "Prioritize reusing components from src/components/ui.",
+    "Use named exports for components, default for pages.",
+    "Use `sonner` for toasts."
+  ]
+}
