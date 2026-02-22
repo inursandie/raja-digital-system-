@@ -138,12 +138,9 @@ export default function AuditLog() {
               </thead>
               <tbody>
                 {logs.map((log, i) => (
-                  <motion.tr
+                  <tr
                     key={`${log.date}-${log.driver_id}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.015 }}
-                    className={`border-b border-zinc-800/30 hover:bg-white/3 transition-colors ${log.mismatch ? 'bg-red-950/10' : ''}`}
+                    className={`border-b border-zinc-800/30 hover:bg-white/5 transition-colors ${log.mismatch ? 'bg-red-950/10' : ''}`}
                   >
                     <td className="px-5 py-3 font-mono text-xs text-zinc-400">{log.date}</td>
                     <td className="px-5 py-3 font-mono text-xs text-zinc-300">{log.driver_id}</td>
