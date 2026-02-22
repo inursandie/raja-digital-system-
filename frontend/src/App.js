@@ -6,6 +6,7 @@ import Login from '@/pages/Login';
 import AdminDashboard from '@/pages/AdminDashboard';
 import SuperAdminDashboard from '@/pages/SuperAdminDashboard';
 import SIJInput from '@/pages/SIJInput';
+import SIJList from '@/pages/SIJList';
 import Drivers from '@/pages/Drivers';
 import AuditLog from '@/pages/AuditLog';
 import Layout from '@/components/Layout';
