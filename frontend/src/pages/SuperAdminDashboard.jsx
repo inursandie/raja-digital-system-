@@ -169,7 +169,7 @@ function LineSVGChart({ data }) {
   const polyline = pts.map(function(p) { return p.x + ',' + p.y; }).join(' ');
 
   return (
-    <svg width="100%" viewBox={'0 0 ' + svgW + ' ' + svgH} preserveAspectRatio="xMidYMid meet">
+    <svg width="100%" height="160" viewBox={'0 0 ' + svgW + ' ' + svgH} preserveAspectRatio="none">
       <polyline
         points={polyline}
         fill="none"
