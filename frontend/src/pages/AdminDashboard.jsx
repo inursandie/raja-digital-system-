@@ -179,7 +179,7 @@ export default function AdminDashboard() {
                     <td className="px-5 py-3">
                       <StatusBadge status={driver.status} />
                     </td>
-                  </motion.tr>
+                  </tr>
                 ))}
               </tbody>
             </table>
