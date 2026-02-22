@@ -221,9 +221,12 @@ async def create_sij(req: SIJCreateRequest, user: dict = Depends(require_admin))
 async def get_sij_transactions(
     date: Optional[str] = None,
     shift: Optional[str] = None,
+    include_void: bool = False,
     user: dict = Depends(get_current_user)
 ):
-    query = {"status": "active"}
+    query = {}
+    if not include_void:
+        query["status"] = "active"
     if date:
         query["date"] = date
     if shift:
