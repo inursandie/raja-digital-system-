@@ -3,22 +3,7 @@ import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import { TrendingUp, DollarSign, Users, BarChart2, AlertTriangle, RefreshCw, Ban } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { toast } from 'sonner';
-
-function StatusBadge({ status }) {
-  const map = {
-    active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    warning: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-    suspend: 'bg-red-500/10 text-red-400 border-red-500/20',
-  };
-  const labels = { active: 'Aktif', warning: 'Warning', suspend: 'Suspend' };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono border ${map[status] || 'text-zinc-400 border-zinc-700'}`}>
-      {labels[status] || status}
-    </span>
-  );
-}
 
 function useCountUp(target) {
   const [count, setCount] = useState(0);
@@ -26,7 +11,7 @@ function useCountUp(target) {
   useEffect(() => {
     const start = prev.current;
     prev.current = target;
-    if (target === 0) { setCount(0); return; }
+    if (!target) { setCount(0); return; }
     const diff = target - start;
     let t0 = null;
     const step = (ts) => {
@@ -48,84 +33,162 @@ const COLORS = {
   purple: { text: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20', glow: '' },
 };
 
-function KPICard({ title, value, icon: Icon, color, prefix, suffix, subtitle, delay }) {
+function KPICard({ title, value, icon, color, prefix, suffix, subtitle, delay }) {
   const count = useCountUp(value || 0);
   const c = COLORS[color] || COLORS.amber;
+  const Icon = icon;
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay || 0, duration: 0.4 }}
-      className={`glass-card-hover rounded-xl p-5 ${c.glow}`}
+      className={'glass-card-hover rounded-xl p-5 ' + c.glow}
     >
       <div className="flex items-center justify-between mb-2">
         <span className="text-label">{title}</span>
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${c.bg}`}>
-          <Icon className={`w-4 h-4 ${c.text}`} />
+        <div className={'w-8 h-8 rounded-lg flex items-center justify-center border ' + c.bg}>
+          <Icon className={'w-4 h-4 ' + c.text} />
         </div>
       </div>
-      <div className={`text-3xl font-black tracking-tight ${c.text}`} style={{ fontFamily: 'Chivo, sans-serif' }}>
+      <div className={'text-3xl font-black tracking-tight ' + c.text} style={{ fontFamily: 'Chivo, sans-serif' }}>
         {prefix || ''}{count.toLocaleString('id-ID')}{suffix || ''}
       </div>
-      {subtitle && <p className="text-xs text-zinc-500 mt-1">{subtitle}</p>}
+      {subtitle ? <p className="text-xs text-zinc-500 mt-1">{subtitle}</p> : null}
     </motion.div>
   );
 }
 
-function ChartTip({ active, payload, label, fmt }) {
-  if (!active || !payload || !payload.length) return null;
+function StatusBadge({ status }) {
+  const styles = {
+    active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    warning: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    suspend: 'bg-red-500/10 text-red-400 border-red-500/20',
+  };
+  const labels = { active: 'Aktif', warning: 'Warning', suspend: 'Suspend' };
   return (
-    <div className="bg-zinc-800/95 border border-zinc-700 rounded-lg p-3 text-xs shadow-xl">
-      {label && <p className="text-zinc-400 mb-1.5 font-mono">{label}</p>}
-      {payload.map((entry, i) => (
-        <p key={i} className="font-mono" style={{ color: entry.color || entry.fill }}>
-          {entry.name}: {fmt ? fmt(entry.value) : entry.value.toLocaleString('id-ID')}
-        </p>
-      ))}
-    </div>
+    <span className={'inline-flex items-center px-2 py-0.5 rounded text-xs font-mono border ' + (styles[status] || 'text-zinc-400 border-zinc-700')}>
+      {labels[status] || status}
+    </span>
   );
 }
 
 function ShiftChart({ data }) {
   const items = data || [];
-  const total = items.reduce((s, d) => s + (d.value || 0), 0);
+  const total = items.reduce(function(s, d) { return s + (d.value || 0); }, 0);
   return (
     <div className="py-2 space-y-5">
       <div className="text-center mb-4">
-        <div className="text-5xl font-black text-white leading-none" style={{ fontFamily: 'Chivo, sans-serif' }}>
-          {total}
-        </div>
-        <div className="text-xs font-mono text-zinc-500 mt-1.5 uppercase tracking-widest">
-          Total SIJ Hari Ini
-        </div>
+        <div className="text-5xl font-black text-white leading-none" style={{ fontFamily: 'Chivo, sans-serif' }}>{total}</div>
+        <div className="text-xs font-mono text-zinc-500 mt-1.5 uppercase tracking-widest">Total SIJ Hari Ini</div>
       </div>
-      {items.map((d) => (
-        <div key={d.name}>
-          <div className="flex items-center justify-between text-xs font-mono mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.fill }} />
-              <span style={{ color: d.fill }}>{d.name}</span>
-            </div>
-            <span className="font-bold text-zinc-200">
-              {d.value}
-              <span className="text-zinc-600 ml-1 font-normal">
-                ({total > 0 ? Math.round((d.value / total) * 100) : 0}%)
+      {items.map(function(d) {
+        const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
+        const w = total > 0 ? ((d.value / total) * 100) + '%' : '0%';
+        return (
+          <div key={d.name}>
+            <div className="flex items-center justify-between text-xs font-mono mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.fill }} />
+                <span style={{ color: d.fill }}>{d.name}</span>
+              </div>
+              <span className="font-bold text-zinc-200">
+                {d.value}
+                <span className="text-zinc-600 ml-1 font-normal">({pct}%)</span>
               </span>
-            </span>
+            </div>
+            <div className="h-2.5 bg-zinc-800/80 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ width: w, backgroundColor: d.fill, transition: 'width 1.2s cubic-bezier(0.4,0,0.2,1)' }}
+              />
+            </div>
           </div>
-          <div className="h-2.5 bg-zinc-800/80 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: total > 0 ? `${(d.value / total) * 100}%` : '0%',
-                backgroundColor: d.fill,
-                transition: 'width 1.2s cubic-bezier(0.4,0,0.2,1)',
-              }}
-            />
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
+  );
+}
+
+function BarSVGChart({ data }) {
+  const items = data || [];
+  if (!items.length) {
+    return <div className="h-44 flex items-center justify-center text-xs text-zinc-600 font-mono">Belum ada data</div>;
+  }
+  const maxVal = Math.max.apply(null, items.map(function(d) { return d.revenue || 0; }));
+  const svgH = 160;
+  const barW = 40;
+  const gap = 20;
+  const padL = 50;
+  const padB = 24;
+  const chartH = svgH - padB;
+  const svgW = padL + items.length * (barW + gap);
+
+  return (
+    <svg width="100%" viewBox={'0 0 ' + svgW + ' ' + svgH} preserveAspectRatio="xMidYMid meet">
+      {items.map(function(d, i) {
+        const x = padL + i * (barW + gap);
+        const barH = maxVal > 0 ? ((d.revenue / maxVal) * (chartH - 10)) : 4;
+        const y = chartH - barH;
+        const label = d.name || d._id || '';
+        const val = d.revenue ? ('Rp ' + Math.floor(d.revenue / 1000) + 'K') : '0';
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH} fill="#10b981" rx="3" opacity="0.9" />
+            <text x={x + barW / 2} y={svgH - 6} textAnchor="middle" fill="#71717a" fontSize="9" fontFamily="monospace">{label}</text>
+            <text x={x + barW / 2} y={y - 4} textAnchor="middle" fill="#10b981" fontSize="8" fontFamily="monospace">{val}</text>
+          </g>
+        );
+      })}
+      <line x1={padL - 4} y1={0} x2={padL - 4} y2={chartH} stroke="#27272a" strokeWidth="1" />
+      <line x1={padL - 4} y1={chartH} x2={svgW - 8} y2={chartH} stroke="#27272a" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function LineSVGChart({ data }) {
+  const items = data || [];
+  if (!items.length) {
+    return <div className="h-44 flex items-center justify-center text-xs text-zinc-600 font-mono">Belum ada data</div>;
+  }
+  const maxVal = Math.max.apply(null, items.map(function(d) { return d.sij || 0; })) || 1;
+  const svgH = 160;
+  const padL = 30;
+  const padB = 24;
+  const padR = 12;
+  const chartH = svgH - padB - 8;
+  const svgW = 300;
+  const chartW = svgW - padL - padR;
+  const stepX = chartW / (items.length - 1 || 1);
+
+  const pts = items.map(function(d, i) {
+    const x = padL + i * stepX;
+    const y = 8 + (chartH - ((d.sij / maxVal) * chartH));
+    return { x: x, y: y, sij: d.sij, date: d.date };
+  });
+
+  const polyline = pts.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+
+  return (
+    <svg width="100%" viewBox={'0 0 ' + svgW + ' ' + svgH} preserveAspectRatio="xMidYMid meet">
+      <polyline
+        points={polyline}
+        fill="none"
+        stroke="#f59e0b"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      {pts.map(function(p, i) {
+        return (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="3.5" fill="#f59e0b" />
+            <text x={p.x} y={svgH - 6} textAnchor="middle" fill="#71717a" fontSize="8" fontFamily="monospace">{p.date}</text>
+            <text x={p.x} y={p.y - 8} textAnchor="middle" fill="#f59e0b" fontSize="9" fontFamily="monospace">{p.sij}</text>
+          </g>
+        );
+      })}
+      <line x1={padL - 4} y1={8} x2={padL - 4} y2={chartH + 8} stroke="#27272a" strokeWidth="1" />
+      <line x1={padL - 4} y1={chartH + 8} x2={svgW - padR} y2={chartH + 8} stroke="#27272a" strokeWidth="1" />
+    </svg>
   );
 }
 
@@ -140,7 +203,7 @@ export default function SuperAdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const res = await axios.get(`${API}/dashboard/superadmin`, { headers: getAuthHeader() });
+      const res = await axios.get(API + '/dashboard/superadmin', { headers: getAuthHeader() });
       setData(res.data);
     } catch (err) {
       toast.error('Gagal memuat data dashboard');
@@ -151,17 +214,17 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     fetchData();
-    const iv = setInterval(() => { fetchData(); setCountdown(30); }, 30000);
-    const tk = setInterval(() => setCountdown((c) => (c > 0 ? c - 1 : 30)), 1000);
-    return () => { clearInterval(iv); clearInterval(tk); };
+    const iv = setInterval(function() { fetchData(); setCountdown(30); }, 30000);
+    const tk = setInterval(function() { setCountdown(function(c) { return c > 0 ? c - 1 : 30; }); }, 1000);
+    return function() { clearInterval(iv); clearInterval(tk); };
   }, []);
 
   const handleSuspend = async (driverId, name) => {
-    if (!window.confirm(`Suspend driver ${name}?`)) return;
+    if (!window.confirm('Suspend driver ' + name + '?')) return;
     setSuspending(driverId);
     try {
-      await axios.patch(`${API}/drivers/${driverId}/suspend`, {}, { headers: getAuthHeader() });
-      toast.success(`Driver ${name} disuspend`);
+      await axios.patch(API + '/drivers/' + driverId + '/suspend', {}, { headers: getAuthHeader() });
+      toast.success('Driver ' + name + ' disuspend');
       fetchData();
     } catch (err) {
       toast.error('Gagal mensuspend driver');
@@ -170,13 +233,9 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const barData = (data?.revenue_per_admin || []).map((a) => ({
-    name: ADMIN_MAP[a._id] || a._id,
-    revenue: a.revenue,
-    count: a.count,
-  }));
-
-  const fmtRupiah = (v) => `Rp ${v.toLocaleString('id-ID')}`;
+  const barData = (data && data.revenue_per_admin ? data.revenue_per_admin : []).map(function(a) {
+    return { name: ADMIN_MAP[a._id] || a._id, revenue: a.revenue, count: a.count };
+  });
 
   if (loading) {
     return (
@@ -186,9 +245,12 @@ export default function SuperAdminDashboard() {
     );
   }
 
+  const totalDrivers = data && data.total_drivers ? data.total_drivers : 0;
+  const suspendedDrivers = data && data.suspended_drivers ? data.suspended_drivers : 0;
+  const driverSubtitle = totalDrivers + ' total · ' + suspendedDrivers + ' suspend';
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-white" style={{ fontFamily: 'Chivo, sans-serif' }}>
@@ -202,104 +264,32 @@ export default function SuperAdminDashboard() {
         </div>
       </motion.div>
 
-      {/* KPI Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="SIJ Hari Ini" value={data?.total_sij_today} icon={TrendingUp} color="amber" delay={0} />
-        <KPICard
-          title="Revenue Hari Ini"
-          value={data?.total_revenue_today}
-          icon={DollarSign}
-          color="emerald"
-          prefix="Rp "
-          delay={0.07}
-        />
-        <KPICard
-          title="Driver Aktif"
-          value={data?.active_drivers}
-          icon={Users}
-          color="sky"
-          subtitle={`${data?.total_drivers || 0} total · ${data?.suspended_drivers || 0} suspend`}
-          delay={0.14}
-        />
-        <KPICard
-          title="Proyeksi Bulan"
-          value={data?.projection}
-          icon={BarChart2}
-          color="purple"
-          prefix="Rp "
-          delay={0.21}
-        />
+        <KPICard title="SIJ Hari Ini" value={data && data.total_sij_today} icon={TrendingUp} color="amber" delay={0} />
+        <KPICard title="Revenue Hari Ini" value={data && data.total_revenue_today} icon={DollarSign} color="emerald" prefix="Rp " delay={0.07} />
+        <KPICard title="Driver Aktif" value={data && data.active_drivers} icon={Users} color="sky" subtitle={driverSubtitle} delay={0.14} />
+        <KPICard title="Proyeksi Bulan" value={data && data.projection} icon={BarChart2} color="purple" prefix="Rp " delay={0.21} />
       </div>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Shift Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="glass-card rounded-xl p-5"
-        >
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-xl p-5">
           <h3 className="text-sm font-semibold text-zinc-100 mb-4">SIJ per Shift (Hari Ini)</h3>
-          <ShiftChart data={data?.sij_per_shift} />
+          <ShiftChart data={data && data.sij_per_shift} />
         </motion.div>
 
-        {/* Bar Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.37 }}
-          className="glass-card rounded-xl p-5"
-        >
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.37 }} className="glass-card rounded-xl p-5">
           <h3 className="text-sm font-semibold text-zinc-100 mb-4">Revenue per Admin (Hari Ini)</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={barData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#71717a' }} />
-              <YAxis tick={{ fontSize: 9, fill: '#71717a' }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-              <Tooltip content={<ChartTip fmt={fmtRupiah} />} />
-              <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <BarSVGChart data={barData} />
         </motion.div>
 
-        {/* Line Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.44 }}
-          className="glass-card rounded-xl p-5"
-        >
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="glass-card rounded-xl p-5">
           <h3 className="text-sm font-semibold text-zinc-100 mb-4">Tren SIJ 7 Hari</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={data?.daily_trend || []} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-              <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#71717a' }} />
-              <YAxis tick={{ fontSize: 9, fill: '#71717a' }} />
-              <Tooltip content={<ChartTip />} />
-              <Line
-                type="monotone"
-                dataKey="sij"
-                name="SIJ"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                dot={{ fill: '#f59e0b', r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <LineSVGChart data={data && data.daily_trend} />
         </motion.div>
       </div>
 
-      {/* Driver Ranking + Mismatch */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Driver Ranking */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="glass-card rounded-xl overflow-hidden"
-        >
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-zinc-800/50">
             <h2 className="text-sm font-semibold text-zinc-100">Ranking Driver (SIJ Bulan Ini)</h2>
           </div>
@@ -314,19 +304,14 @@ export default function SuperAdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {(data?.driver_ranking || []).map((d, i) => {
-                  const rankColor = i === 0 ? 'text-amber-400' : i === 1 ? 'text-zinc-300' : i === 2 ? 'text-orange-400' : 'text-zinc-500';
+                {(data && data.driver_ranking ? data.driver_ranking : []).map(function(d, i) {
+                  const rc = i === 0 ? 'text-amber-400' : i === 1 ? 'text-zinc-300' : i === 2 ? 'text-orange-400' : 'text-zinc-500';
+                  const cc = d.category === 'premium' ? 'text-amber-400' : 'text-zinc-400';
                   return (
                     <tr key={d.driver_id} className="border-b border-zinc-800/30 hover:bg-white/5 transition-colors">
-                      <td className="px-4 py-3">
-                        <span className={`font-mono text-xs font-bold ${rankColor}`}>#{i + 1}</span>
-                      </td>
+                      <td className="px-4 py-3"><span className={'font-mono text-xs font-bold ' + rc}>#{i + 1}</span></td>
                       <td className="px-4 py-3 text-zinc-100 text-sm">{d.name}</td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs font-mono ${d.category === 'premium' ? 'text-amber-400' : 'text-zinc-400'}`}>
-                          {d.category}
-                        </span>
-                      </td>
+                      <td className="px-4 py-3"><span className={'text-xs font-mono ' + cc}>{d.category}</span></td>
                       <td className="px-4 py-3 text-right font-mono font-bold text-amber-400">{d.total_sij_month}</td>
                     </tr>
                   );
@@ -336,22 +321,16 @@ export default function SuperAdminDashboard() {
           </div>
         </motion.div>
 
-        {/* Mismatch + Suspend */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.57 }}
-          className="glass-card rounded-xl overflow-hidden"
-        >
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.57 }} className="glass-card rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/50">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-400" />
               <h2 className="text-sm font-semibold text-zinc-100">Mismatch Driver</h2>
             </div>
-            <span className="text-xs font-mono text-zinc-500">{data?.mismatch_list?.length || 0}</span>
+            <span className="text-xs font-mono text-zinc-500">{data && data.mismatch_list ? data.mismatch_list.length : 0}</span>
           </div>
           <div className="overflow-x-auto max-h-64 scrollbar-thin">
-            {!data?.mismatch_list?.length ? (
+            {!(data && data.mismatch_list && data.mismatch_list.length) ? (
               <div className="py-10 text-center text-zinc-500 text-sm">Tidak ada mismatch</div>
             ) : (
               <table className="w-full text-sm" data-testid="superadmin-mismatch-table">
@@ -364,25 +343,21 @@ export default function SuperAdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data?.mismatch_list || []).map((d) => {
-                    const mmColor = d.mismatch_count >= 3 ? 'text-red-400' : d.mismatch_count >= 2 ? 'text-orange-400' : 'text-yellow-400';
+                  {(data.mismatch_list || []).map(function(d) {
+                    const mc = d.mismatch_count >= 3 ? 'text-red-400' : d.mismatch_count >= 2 ? 'text-orange-400' : 'text-yellow-400';
                     return (
                       <tr key={d.driver_id} className="border-b border-zinc-800/30 hover:bg-white/5 transition-colors">
                         <td className="px-4 py-3">
                           <div className="text-zinc-100 text-sm">{d.name}</div>
                           <div className="text-xs font-mono text-zinc-500">{d.driver_id}</div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`font-bold font-mono text-sm ${mmColor}`}>{d.mismatch_count}x</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <StatusBadge status={d.status} />
-                        </td>
+                        <td className="px-4 py-3"><span className={'font-bold font-mono text-sm ' + mc}>{d.mismatch_count}x</span></td>
+                        <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                         <td className="px-4 py-3 text-right">
                           {d.status !== 'suspend' ? (
                             <button
-                              data-testid={`suspend-btn-${d.driver_id}`}
-                              onClick={() => handleSuspend(d.driver_id, d.name)}
+                              data-testid={'suspend-btn-' + d.driver_id}
+                              onClick={function() { handleSuspend(d.driver_id, d.name); }}
                               disabled={suspending === d.driver_id}
                               className="flex items-center gap-1 ml-auto px-2 py-1 rounded text-xs bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50 transition-all disabled:opacity-50"
                             >
