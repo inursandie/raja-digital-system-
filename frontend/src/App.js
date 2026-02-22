@@ -40,6 +40,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/sij" element={<SIJInput />} />
+              <Route path="/sij-list" element={<SIJList />} />
               <Route path="/drivers" element={<Drivers />} />
               <Route path="/audit" element={<AuditLog />} />
             </Route>
