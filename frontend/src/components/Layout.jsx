@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['admin', 'superadmin'] },
   { icon: FileText, label: 'Input SIJ', path: '/sij', roles: ['admin', 'superadmin'] },
+  { icon: ClipboardList, label: 'List SIJ', path: '/sij-list', roles: ['admin', 'superadmin'] },
   { icon: Users, label: 'Data Driver', path: '/drivers', roles: ['superadmin'] },
   { icon: ClipboardList, label: 'Audit Log', path: '/audit', roles: ['superadmin'] },
 ];
