@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { Search, Ban, CheckCircle2, Edit2, X } from 'lucide-react';
+import { Search, Ban, CheckCircle2, Edit2, X, Download, FileDown, Plus, Trash2 } from 'lucide-react';
 import { StatusBadge } from './AdminDashboard';
 
 const CATEGORY_LABELS = { reg: 'Regular', premium: 'Premium' };
@@ -87,14 +87,109 @@ const EditModal = ({ driver, onClose, onSave }) => {
   );
 };
 
+const CreateModal = ({ onClose, onCreate }) => {
+  const [form, setForm] = useState({
+    driver_id: '',
+    name: '',
+    phone: '',
+    plate: '',
+    category: 'reg',
+    status: 'active',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!form.driver_id || !form.name) {
+      toast.error('Driver ID dan Nama wajib diisi');
+      return;
+    }
+    setSaving(true);
+    await onCreate(form);
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative z-10 w-full max-w-md mx-4 glass-card rounded-xl p-6 border border-white/10"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-bold text-zinc-100">Tambah Driver Baru</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+            <label className="text-label block mb-1.5">Driver ID *</label>
+            <input value={form.driver_id} onChange={e => setForm(f => ({ ...f, driver_id: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all font-mono" required />
+          </div>
+          <div>
+            <label className="text-label block mb-1.5">Nama *</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all" required />
+          </div>
+          <div>
+            <label className="text-label block mb-1.5">No. HP</label>
+            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all font-mono" />
+          </div>
+          <div>
+            <label className="text-label block mb-1.5">Plat Nomor</label>
+            <input value={form.plate} onChange={e => setForm(f => ({ ...f, plate: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all font-mono" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-label block mb-1.5">Kategori</label>
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all">
+                <option value="reg">Regular</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-label block mb-1.5">Status</label>
+              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all">
+                <option value="active">Aktif</option>
+                <option value="warning">Warning</option>
+                <option value="suspend">Suspend</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 text-sm font-bold transition-all">
+              Batal
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2 rounded-lg bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-all disabled:opacity-50">
+              {saving ? 'Menyimpan...' : 'Tambah'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
 export default function Drivers() {
-  const { getAuthHeader, API } = useAuth();
+  const { getAuthHeader, API, user } = useAuth();
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [editDriver, setEditDriver] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const isSuperAdmin = user?.role === 'superadmin';
 
   const fetchDrivers = async () => {
     try {
@@ -142,6 +237,51 @@ export default function Drivers() {
     } catch { toast.error('Gagal memperbarui driver'); }
   };
 
+  const handleCreate = async (data) => {
+    try {
+      await axios.post(`${API}/drivers`, data, { headers: getAuthHeader() });
+      toast.success('Driver berhasil ditambahkan');
+      setShowCreate(false);
+      fetchDrivers();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Gagal menambah driver');
+    }
+  };
+
+  const handleDelete = async (driverId, name) => {
+    if (!window.confirm(`Hapus driver ${name}? Data akan hilang permanen.`)) return;
+    setActionLoading(driverId);
+    try {
+      await axios.delete(`${API}/drivers/${driverId}`, { headers: getAuthHeader() });
+      toast.success(`Driver ${name} berhasil dihapus`);
+      fetchDrivers();
+    } catch { toast.error('Gagal menghapus driver'); }
+    finally { setActionLoading(null); }
+  };
+
+  const handleExport = async (type) => {
+    setExporting(true);
+    try {
+      const res = await axios.get(`${API}/drivers/export/${type}`, {
+        headers: getAuthHeader(),
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `drivers.${type === 'csv' ? 'csv' : 'pdf'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`${type.toUpperCase()} berhasil diunduh`);
+    } catch {
+      toast.error(`Gagal mengekspor ${type.toUpperCase()}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const stats = {
     total: drivers.length,
     active: drivers.filter(d => d.status === 'active').length,
@@ -154,13 +294,33 @@ export default function Drivers() {
       {editDriver && (
         <EditModal driver={editDriver} onClose={() => setEditDriver(null)} onSave={handleSave} />
       )}
+      {showCreate && (
+        <CreateModal onClose={() => setShowCreate(false)} onCreate={handleCreate} />
+      )}
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <h1 className="text-2xl font-black text-white" style={{ fontFamily: 'Chivo, sans-serif' }}>Data Driver</h1>
-        <p className="text-zinc-500 text-sm mt-0.5">{stats.total} total · {stats.active} aktif · {stats.warning} warning · {stats.suspend} suspend</p>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-white" style={{ fontFamily: 'Chivo, sans-serif' }}>Data Driver</h1>
+          <p className="text-zinc-500 text-sm mt-0.5">{stats.total} total · {stats.active} aktif · {stats.warning} warning · {stats.suspend} suspend</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => handleExport('csv')} disabled={exporting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 text-xs font-bold transition-all disabled:opacity-50">
+            <Download className="w-3.5 h-3.5" /> CSV
+          </button>
+          <button onClick={() => handleExport('pdf')} disabled={exporting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black border border-amber-400 hover:bg-amber-400 text-xs font-bold transition-all disabled:opacity-50">
+            <FileDown className="w-3.5 h-3.5" /> PDF
+          </button>
+          {isSuperAdmin && (
+            <button onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white border border-emerald-500 hover:bg-emerald-500 text-xs font-bold transition-all">
+              <Plus className="w-3.5 h-3.5" /> Tambah
+            </button>
+          )}
+        </div>
       </motion.div>
 
-      {/* Stats pills */}
       <div className="flex flex-wrap gap-2">
         {[
           { label: 'Semua', value: '', count: stats.total, color: 'text-zinc-300 bg-zinc-800 border-zinc-700' },
@@ -175,7 +335,6 @@ export default function Drivers() {
         ))}
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
         <input
@@ -188,7 +347,6 @@ export default function Drivers() {
         />
       </div>
 
-      {/* Table */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="glass-card rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
@@ -230,7 +388,7 @@ export default function Drivers() {
                           {d.mismatch_count}x
                         </span>
                       ) : (
-                        <span className="text-zinc-600 text-xs font-mono">—</span>
+                        <span className="text-zinc-600 text-xs font-mono">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -259,6 +417,15 @@ export default function Drivers() {
                             className="p-1.5 rounded text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all disabled:opacity-50"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => handleDelete(d.driver_id, d.name)}
+                            disabled={actionLoading === d.driver_id}
+                            className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>

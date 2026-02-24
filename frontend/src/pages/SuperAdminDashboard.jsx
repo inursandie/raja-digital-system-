@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
-import { TrendingUp, DollarSign, Users, BarChart2, AlertTriangle, RefreshCw, Ban } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, AlertTriangle, RefreshCw, Ban } from 'lucide-react';
 import { toast } from 'sonner';
 
 function useCountUp(target) {
@@ -109,39 +109,6 @@ function ShiftChart({ data }) {
   );
 }
 
-function BarSVGChart({ data }) {
-  const items = data || [];
-  if (!items.length) {
-    return <div className="h-44 flex items-center justify-center text-xs text-zinc-600 font-mono">Belum ada data</div>;
-  }
-  const maxVal = Math.max.apply(null, items.map(function(d) { return d.revenue || 0; })) || 1;
-  
-  return (
-    <div className="py-2 space-y-4">
-      {items.map(function(d, i) {
-        const pct = maxVal > 0 ? Math.round((d.revenue / maxVal) * 100) : 0;
-        const w = maxVal > 0 ? ((d.revenue / maxVal) * 100) + '%' : '0%';
-        const label = d.name || d._id || '';
-        const val = d.revenue ? ('Rp ' + Math.floor(d.revenue / 1000) + 'K') : 'Rp 0';
-        return (
-          <div key={i}>
-            <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-              <span className="text-zinc-300">{label}</span>
-              <span className="font-bold text-emerald-400">{val}</span>
-            </div>
-            <div className="h-3 bg-zinc-800/80 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400"
-                style={{ width: w, transition: 'width 1.2s cubic-bezier(0.4,0,0.2,1)' }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function LineSVGChart({ data }) {
   const items = data || [];
   if (!items.length) {
@@ -189,8 +156,6 @@ function LineSVGChart({ data }) {
   );
 }
 
-const ADMIN_MAP = { admin1: 'Admin 1', admin2: 'Admin 2', admin3: 'Admin 3', admin4: 'Admin 4' };
-
 export default function SuperAdminDashboard() {
   const { getAuthHeader, API } = useAuth();
   const [data, setData] = useState(null);
@@ -230,10 +195,6 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const barData = (data && data.revenue_per_admin ? data.revenue_per_admin : []).map(function(a) {
-    return { name: ADMIN_MAP[a._id] || a._id, revenue: a.revenue, count: a.count };
-  });
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -261,64 +222,26 @@ export default function SuperAdminDashboard() {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <KPICard title="SIJ Hari Ini" value={data && data.total_sij_today} icon={TrendingUp} color="amber" delay={0} />
         <KPICard title="Revenue Hari Ini" value={data && data.total_revenue_today} icon={DollarSign} color="emerald" prefix="Rp " delay={0.07} />
         <KPICard title="Driver Aktif" value={data && data.active_drivers} icon={Users} color="sky" subtitle={driverSubtitle} delay={0.14} />
-        <KPICard title="Proyeksi Bulan" value={data && data.projection} icon={BarChart2} color="purple" prefix="Rp " delay={0.21} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-xl p-5">
           <h3 className="text-sm font-semibold text-zinc-100 mb-4">SIJ per Shift (Hari Ini)</h3>
           <ShiftChart data={data && data.sij_per_shift} />
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.37 }} className="glass-card rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-zinc-100 mb-4">Revenue per Admin (Hari Ini)</h3>
-          <BarSVGChart data={barData} />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="glass-card rounded-xl p-5">
           <h3 className="text-sm font-semibold text-zinc-100 mb-4">Tren SIJ 7 Hari</h3>
           <LineSVGChart data={data && data.daily_trend} />
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-zinc-800/50">
-            <h2 className="text-sm font-semibold text-zinc-100">Ranking Driver (SIJ Bulan Ini)</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" data-testid="driver-ranking-table">
-              <thead>
-                <tr className="border-b border-zinc-800/50">
-                  <th className="text-left px-4 py-3 text-label">#</th>
-                  <th className="text-left px-4 py-3 text-label">Nama</th>
-                  <th className="text-left px-4 py-3 text-label">Kategori</th>
-                  <th className="text-right px-4 py-3 text-label">SIJ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data && data.driver_ranking ? data.driver_ranking : []).map(function(d, i) {
-                  const rc = i === 0 ? 'text-amber-400' : i === 1 ? 'text-zinc-300' : i === 2 ? 'text-orange-400' : 'text-zinc-500';
-                  const cc = d.category === 'premium' ? 'text-amber-400' : 'text-zinc-400';
-                  return (
-                    <tr key={d.driver_id} className="border-b border-zinc-800/30 hover:bg-white/5 transition-colors">
-                      <td className="px-4 py-3"><span className={'font-mono text-xs font-bold ' + rc}>#{i + 1}</span></td>
-                      <td className="px-4 py-3 text-zinc-100 text-sm">{d.name}</td>
-                      <td className="px-4 py-3"><span className={'text-xs font-mono ' + cc}>{d.category}</span></td>
-                      <td className="px-4 py-3 text-right font-mono font-bold text-amber-400">{d.total_sij_month}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.57 }} className="glass-card rounded-xl overflow-hidden">
+      <div className="grid grid-cols-1 gap-4">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="glass-card rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/50">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-400" />

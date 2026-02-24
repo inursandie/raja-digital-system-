@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -6,9 +6,14 @@ from starlette.middleware.cors import CORSMiddleware
 import os, logging, random, io, csv, jwt, bcrypt, asyncpg
 from pathlib import Path
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'raja-digital-secret-2025')
 JWT_ALGORITHM = 'HS256'
@@ -78,6 +83,15 @@ class PrintNetworkRequest(BaseModel):
     hex_data: str
 
 
+class DriverCreateRequest(BaseModel):
+    driver_id: str
+    name: str
+    phone: str = ""
+    plate: str = ""
+    category: str = "reg"
+    status: str = "active"
+
+
 class DriverUpdateRequest(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
@@ -126,8 +140,10 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 # =================== DRIVERS ===================
 
+DRIVER_SORT_COLS = {"name", "driver_id", "plate", "category", "status", "mismatch_count", "total_sij_month"}
+
 @api_router.get("/drivers")
-async def get_drivers(search: str = "", status_filter: str = "", user: dict = Depends(get_current_user)):
+async def get_drivers(search: str = "", status_filter: str = "", sort_by: str = "name", sort_dir: str = "asc", user: dict = Depends(get_current_user)):
     conditions = []
     params = []
     idx = 1
@@ -140,7 +156,9 @@ async def get_drivers(search: str = "", status_filter: str = "", user: dict = De
         params.append(status_filter)
         idx += 1
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
-    rows = await pool.fetch(f"SELECT driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month FROM drivers {where} ORDER BY name", *params)
+    col = sort_by if sort_by in DRIVER_SORT_COLS else "name"
+    direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
+    rows = await pool.fetch(f"SELECT driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month FROM drivers {where} ORDER BY {col} {direction}", *params)
     return rows_to_list(rows)
 
 
@@ -148,6 +166,66 @@ async def get_drivers(search: str = "", status_filter: str = "", user: dict = De
 async def get_active_drivers(user: dict = Depends(get_current_user)):
     rows = await pool.fetch("SELECT driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month FROM drivers WHERE status = 'active' ORDER BY name")
     return rows_to_list(rows)
+
+
+@api_router.post("/drivers")
+async def create_driver(data: DriverCreateRequest, user: dict = Depends(require_superadmin)):
+    existing = await pool.fetchrow("SELECT driver_id FROM drivers WHERE driver_id = $1", data.driver_id)
+    if existing:
+        raise HTTPException(status_code=400, detail="Driver ID sudah ada")
+    await pool.execute(
+        "INSERT INTO drivers (driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month) VALUES ($1, $2, $3, $4, $5, $6, 0, 0)",
+        data.driver_id, data.name, data.phone, data.plate, data.category, data.status
+    )
+    return {"message": "Driver berhasil ditambahkan", "driver_id": data.driver_id}
+
+
+@api_router.get("/drivers/export/csv")
+async def export_drivers_csv(user: dict = Depends(get_current_user)):
+    rows = await pool.fetch("SELECT driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month FROM drivers ORDER BY name")
+    drivers = rows_to_list(rows)
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["driver_id", "name", "phone", "plate", "category", "status", "mismatch_count", "total_sij_month"])
+    writer.writeheader()
+    writer.writerows(drivers)
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=drivers.csv"}
+    )
+
+
+@api_router.get("/drivers/export/pdf")
+async def export_drivers_pdf(user: dict = Depends(get_current_user)):
+    rows = await pool.fetch("SELECT driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month FROM drivers ORDER BY name")
+    drivers = rows_to_list(rows)
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title2', parent=styles['Title'], fontSize=16, spaceAfter=10)
+    elements = [Paragraph("RAJA Digital System - Data Driver", title_style), Spacer(1, 5*mm)]
+    header = ["Driver ID", "Nama", "Telepon", "Plat", "Kategori", "Status", "Mismatch", "SIJ Bulan"]
+    data = [header]
+    for d in drivers:
+        data.append([d['driver_id'], d['name'], d['phone'], d['plate'], d['category'], d['status'], str(d['mismatch_count']), str(d['total_sij_month'])])
+    t = Table(data, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f59e0b')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=drivers.pdf"})
 
 
 @api_router.put("/drivers/{driver_id}")
@@ -176,6 +254,15 @@ async def suspend_driver(driver_id: str, user: dict = Depends(require_superadmin
 async def activate_driver(driver_id: str, user: dict = Depends(require_superadmin)):
     await pool.execute("UPDATE drivers SET status = 'active' WHERE driver_id = $1", driver_id)
     return {"message": "Driver diaktifkan"}
+
+
+@api_router.delete("/drivers/{driver_id}")
+async def delete_driver(driver_id: str, user: dict = Depends(require_superadmin)):
+    existing = await pool.fetchrow("SELECT driver_id FROM drivers WHERE driver_id = $1", driver_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Driver tidak ditemukan")
+    await pool.execute("DELETE FROM drivers WHERE driver_id = $1", driver_id)
+    return {"message": "Driver berhasil dihapus"}
 
 
 # =================== SIJ TRANSACTIONS ===================
@@ -251,11 +338,18 @@ async def create_sij(req: SIJCreateRequest, user: dict = Depends(require_admin))
     }
 
 
+SIJ_SORT_COLS = {"transaction_id", "driver_name", "driver_id", "date", "time", "admin_name", "shift", "amount", "sheets", "status", "created_at"}
+
 @api_router.get("/sij")
 async def get_sij_transactions(
     date: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     shift: Optional[str] = None,
+    search: Optional[str] = None,
     include_void: bool = False,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
     user: dict = Depends(get_current_user)
 ):
     conditions = []
@@ -267,16 +361,118 @@ async def get_sij_transactions(
         conditions.append(f"date = ${idx}")
         params.append(date)
         idx += 1
+    if date_from:
+        conditions.append(f"date >= ${idx}")
+        params.append(date_from)
+        idx += 1
+    if date_to:
+        conditions.append(f"date <= ${idx}")
+        params.append(date_to)
+        idx += 1
     if shift:
         conditions.append(f"shift = ${idx}")
         params.append(shift)
         idx += 1
+    if search:
+        conditions.append(f"(driver_name ILIKE ${idx} OR driver_id ILIKE ${idx} OR transaction_id ILIKE ${idx})")
+        params.append(f"%{search}%")
+        idx += 1
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    col = sort_by if sort_by in SIJ_SORT_COLS else "created_at"
+    direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
     rows = await pool.fetch(
-        f"SELECT transaction_id, driver_id, driver_name, category, date, time, sheets, amount, qris_ref, admin_id, admin_name, shift, status, created_at FROM sij_transactions {where} ORDER BY created_at DESC",
+        f"SELECT transaction_id, driver_id, driver_name, category, date, time, sheets, amount, qris_ref, admin_id, admin_name, shift, status, created_at FROM sij_transactions {where} ORDER BY {col} {direction}",
         *params
     )
     return rows_to_list(rows)
+
+
+@api_router.get("/sij/export/csv")
+async def export_sij_csv(date_from: Optional[str] = None, date_to: Optional[str] = None, user: dict = Depends(get_current_user)):
+    conditions = ["status = 'active'"]
+    params = []
+    idx = 1
+    if date_from:
+        conditions.append(f"date >= ${idx}")
+        params.append(date_from)
+        idx += 1
+    if date_to:
+        conditions.append(f"date <= ${idx}")
+        params.append(date_to)
+        idx += 1
+    where = "WHERE " + " AND ".join(conditions)
+    rows = await pool.fetch(f"SELECT transaction_id, driver_id, driver_name, category, date, time, sheets, amount, qris_ref, admin_name, shift, status FROM sij_transactions {where} ORDER BY date DESC, time DESC", *params)
+    data = rows_to_list(rows)
+    output = io.StringIO()
+    fields = ["transaction_id", "driver_id", "driver_name", "category", "date", "time", "sheets", "amount", "qris_ref", "admin_name", "shift", "status"]
+    writer = csv.DictWriter(output, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(data)
+    output.seek(0)
+    fname = f"sij_{date_from or 'all'}_{date_to or 'all'}.csv"
+    return StreamingResponse(io.BytesIO(output.getvalue().encode()), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@api_router.get("/sij/export/pdf")
+async def export_sij_pdf(date_from: Optional[str] = None, date_to: Optional[str] = None, user: dict = Depends(get_current_user)):
+    conditions = ["status = 'active'"]
+    params = []
+    idx = 1
+    if date_from:
+        conditions.append(f"date >= ${idx}")
+        params.append(date_from)
+        idx += 1
+    if date_to:
+        conditions.append(f"date <= ${idx}")
+        params.append(date_to)
+        idx += 1
+    where = "WHERE " + " AND ".join(conditions)
+    rows = await pool.fetch(f"SELECT transaction_id, driver_id, driver_name, category, date, time, sheets, amount, qris_ref, admin_name, shift FROM sij_transactions {where} ORDER BY date DESC, time DESC", *params)
+    data = rows_to_list(rows)
+    total_amount = sum(d['amount'] for d in data)
+    total_sheets = sum(d['sheets'] for d in data)
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title2', parent=styles['Title'], fontSize=16, spaceAfter=6)
+    sub_style = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=10, spaceAfter=10, textColor=colors.grey)
+    period = ""
+    if date_from and date_to:
+        period = f"Periode: {date_from} s/d {date_to}"
+    elif date_from:
+        period = f"Dari: {date_from}"
+    elif date_to:
+        period = f"Sampai: {date_to}"
+    else:
+        period = "Semua data"
+    elements = [
+        Paragraph("RAJA Digital System - Laporan SIJ", title_style),
+        Paragraph(f"{period} | Total: {len(data)} transaksi | Revenue: Rp {total_amount:,} | Sheets: {total_sheets}", sub_style),
+        Spacer(1, 3*mm),
+    ]
+    header = ["No", "Transaction ID", "Driver", "Kategori", "Tanggal", "Jam", "Sheet", "Jumlah", "QRIS Ref", "Admin", "Shift"]
+    tdata = [header]
+    for i, d in enumerate(data, 1):
+        tdata.append([str(i), d['transaction_id'], d['driver_name'], d['category'], d['date'], d['time'], str(d['sheets']), f"Rp {d['amount']:,}", d['qris_ref'], d['admin_name'], d['shift']])
+    t = Table(tdata, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f59e0b')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+        ('ALIGN', (6, 0), (7, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buf.seek(0)
+    fname = f"sij_report_{date_from or 'all'}_{date_to or 'all'}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 
 @api_router.patch("/sij/{transaction_id}/void")
@@ -295,6 +491,15 @@ async def void_sij(transaction_id: str, user: dict = Depends(require_admin)):
         pass
     await pool.execute("UPDATE sij_transactions SET status = 'void' WHERE transaction_id = $1", transaction_id)
     return {"message": "Transaksi di-void"}
+
+
+@api_router.delete("/sij/{transaction_id}")
+async def delete_sij(transaction_id: str, user: dict = Depends(require_superadmin)):
+    existing = await pool.fetchrow("SELECT transaction_id FROM sij_transactions WHERE transaction_id = $1", transaction_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Transaksi tidak ditemukan")
+    await pool.execute("DELETE FROM sij_transactions WHERE transaction_id = $1", transaction_id)
+    return {"message": "Transaksi berhasil dihapus"}
 
 
 # =================== DASHBOARD ===================
@@ -353,18 +558,11 @@ async def superadmin_dashboard(user: dict = Depends(require_superadmin)):
     total_drivers = await pool.fetchval("SELECT COUNT(*) FROM drivers")
     active_drivers = await pool.fetchval("SELECT COUNT(*) FROM drivers WHERE status = 'active'")
     suspended_drivers = await pool.fetchval("SELECT COUNT(*) FROM drivers WHERE status = 'suspend'")
-    days_elapsed = max(now.day, 1)
-    projection = int(monthly_revenue * 30 / days_elapsed)
-
     shift1_sij = await pool.fetchval(
         "SELECT COUNT(*) FROM sij_transactions WHERE date = $1 AND shift = 'Shift1' AND status = 'active'", today
     )
     shift2_sij = await pool.fetchval(
         "SELECT COUNT(*) FROM sij_transactions WHERE date = $1 AND shift = 'Shift2' AND status = 'active'", today
-    )
-    admin_rev_rows = await pool.fetch(
-        "SELECT admin_id as _id, SUM(amount) as revenue, COUNT(*) as count FROM sij_transactions WHERE date = $1 AND status = 'active' GROUP BY admin_id",
-        today
     )
     daily_trend = []
     for i in range(6, -1, -1):
@@ -375,9 +573,6 @@ async def superadmin_dashboard(user: dict = Depends(require_superadmin)):
         )
         daily_trend.append({"date": day[5:], "sij": row['cnt'], "revenue": row['total']})
 
-    driver_ranking = await pool.fetch(
-        "SELECT driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month FROM drivers WHERE status = 'active' ORDER BY total_sij_month DESC LIMIT 10"
-    )
     mismatch_list = await pool.fetch(
         "SELECT driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month FROM drivers WHERE mismatch_count > 0 ORDER BY mismatch_count DESC LIMIT 100"
     )
@@ -389,31 +584,41 @@ async def superadmin_dashboard(user: dict = Depends(require_superadmin)):
         "total_drivers": total_drivers,
         "active_drivers": active_drivers,
         "suspended_drivers": suspended_drivers,
-        "projection": projection,
         "sij_per_shift": [
             {"name": "Shift 1", "value": shift1_sij, "fill": "#f59e0b"},
             {"name": "Shift 2", "value": shift2_sij, "fill": "#0ea5e9"},
         ],
-        "revenue_per_admin": rows_to_list(admin_rev_rows),
         "daily_trend": daily_trend,
-        "driver_ranking": rows_to_list(driver_ranking),
         "mismatch_list": rows_to_list(mismatch_list),
     }
 
 
 # =================== AUDIT LOG ===================
 
+AUDIT_SORT_COLS = {"date", "driver_id", "has_sij", "has_trip", "mismatch"}
+
 @api_router.get("/audit")
-async def get_audit_log(date: Optional[str] = None, user: dict = Depends(require_superadmin)):
+async def get_audit_log(date: Optional[str] = None, search: Optional[str] = None, sort_by: str = "date", sort_dir: str = "desc", user: dict = Depends(get_current_user)):
+    conditions = []
+    params = []
+    idx = 1
     if date:
-        rows = await pool.fetch("SELECT date, driver_id, has_sij, has_trip, mismatch FROM audit_log WHERE date = $1 ORDER BY date DESC", date)
-    else:
-        rows = await pool.fetch("SELECT date, driver_id, has_sij, has_trip, mismatch FROM audit_log ORDER BY date DESC LIMIT 1000")
+        conditions.append(f"date = ${idx}")
+        params.append(date)
+        idx += 1
+    if search:
+        conditions.append(f"driver_id ILIKE ${idx}")
+        params.append(f"%{search}%")
+        idx += 1
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    col = sort_by if sort_by in AUDIT_SORT_COLS else "date"
+    direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
+    rows = await pool.fetch(f"SELECT date, driver_id, has_sij, has_trip, mismatch FROM audit_log {where} ORDER BY {col} {direction} LIMIT 1000", *params)
     return rows_to_list(rows)
 
 
 @api_router.get("/audit/export")
-async def export_audit_csv(date: Optional[str] = None, user: dict = Depends(require_superadmin)):
+async def export_audit_csv(date: Optional[str] = None, user: dict = Depends(get_current_user)):
     if date:
         rows = await pool.fetch("SELECT date, driver_id, has_sij, has_trip, mismatch FROM audit_log WHERE date = $1 ORDER BY date DESC", date)
     else:

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { 
   Search, CalendarDays, FileText, Printer, X, ChevronLeft, ChevronRight,
-  Download, Eye, Clock, User, CreditCard, Hash
+  Download, Eye, Clock, User, CreditCard, Hash, FileDown
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -172,27 +172,25 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function SIJList() {
-  const { getAuthHeader, API } = useAuth();
+  const { getAuthHeader, API, user } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedTx, setSelectedTx] = useState(null);
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
   const perPage = 15;
 
   const fetchTransactions = async () => {
     setLoading(true);
     try {
-      let url = `${API}/sij`;
       const params = new URLSearchParams();
-      if (selectedDate) {
-        params.append('date', format(selectedDate, 'yyyy-MM-dd'));
-      }
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
+      if (searchQuery) params.append('search', searchQuery);
+      const url = `${API}/sij?${params.toString()}`;
       const res = await axios.get(url, { headers: getAuthHeader() });
       setTransactions(res.data);
     } catch (err) {
@@ -204,39 +202,53 @@ export default function SIJList() {
 
   useEffect(() => {
     fetchTransactions();
-  }, [selectedDate]);
+  }, [dateFrom, dateTo]);
 
-  // Filter by driver name
-  const filteredTransactions = useMemo(() => {
-    if (!searchQuery.trim()) return transactions;
-    const q = searchQuery.toLowerCase();
-    return transactions.filter(tx =>
-      (tx.driver_name || '').toLowerCase().includes(q)
-    );
-  }, [transactions, searchQuery]);
+  const handleSearch = () => {
+    setPage(1);
+    fetchTransactions();
+  };
 
-  // Pagination
+  const filteredTransactions = transactions;
+
   const totalPages = Math.ceil(filteredTransactions.length / perPage);
   const paginatedData = filteredTransactions.slice((page - 1) * perPage, page * perPage);
 
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    setDatePickerOpen(false);
+  const clearFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setSearchQuery('');
     setPage(1);
   };
 
-  const clearDate = () => {
-    setSelectedDate(null);
-    setPage(1);
+  const handleExport = async (type) => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
+      const res = await axios.get(`${API}/sij/export/${type}?${params.toString()}`, {
+        headers: getAuthHeader(),
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `sij_report.${type === 'csv' ? 'csv' : 'pdf'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`${type.toUpperCase()} berhasil diunduh`);
+    } catch {
+      toast.error(`Gagal mengekspor ${type.toUpperCase()}`);
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const openDetail = (tx) => {
-    setSelectedTx(tx);
-  };
-
-  const closeDetail = () => {
-    setSelectedTx(null);
-  };
+  const openDetail = (tx) => setSelectedTx(tx);
+  const closeDetail = () => setSelectedTx(null);
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
@@ -260,7 +272,6 @@ export default function SIJList() {
         className="glass-card rounded-xl p-4"
       >
         <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
@@ -268,57 +279,54 @@ export default function SIJList() {
               type="text"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-              placeholder="Cari nama driver..."
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Cari nama driver / ID..."
               className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 outline-none text-zinc-100 placeholder:text-zinc-600 text-sm transition-all"
             />
           </div>
 
-          {/* Date Filter */}
-          <div className="flex items-center gap-1">
-            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  data-testid="sij-date-filter"
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 hover:border-zinc-600 text-sm transition-all min-w-[180px]"
-                >
-                  <CalendarDays className="w-4 h-4 text-zinc-500" />
-                  <span className={selectedDate ? 'text-zinc-100' : 'text-zinc-500'}>
-                    {selectedDate ? format(selectedDate, 'd MMM yyyy', { locale: id }) : 'Semua tanggal'}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-700" align="end">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={handleDateSelect}
-                initialFocus
-                className="bg-zinc-900 text-zinc-100"
-                classNames={{
-                  day_selected: "bg-amber-500 text-black hover:bg-amber-400",
-                  day_today: "bg-zinc-800 text-amber-400",
-                }}
+          <div className="flex items-center gap-2">
+            <div>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+                className="px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all [color-scheme:dark]"
+                placeholder="Dari"
               />
-            </PopoverContent>
-            </Popover>
-            {selectedDate && (
-              <button
-                type="button"
-                onClick={clearDate}
-                data-testid="sij-clear-date"
-                className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors"
-              >
+            </div>
+            <span className="text-zinc-500 text-xs">s/d</span>
+            <div>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+                className="px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all [color-scheme:dark]"
+                placeholder="Sampai"
+              />
+            </div>
+            {(dateFrom || dateTo || searchQuery) && (
+              <button type="button" onClick={clearFilters} className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors">
                 <X className="w-4 h-4 text-zinc-400" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 mt-3 text-xs text-zinc-500">
-          <span>Total: <span className="text-zinc-300 font-mono">{filteredTransactions.length}</span> transaksi</span>
-          {searchQuery && <span>Filter aktif: "{searchQuery}"</span>}
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center gap-4 text-xs text-zinc-500">
+            <span>Total: <span className="text-zinc-300 font-mono">{filteredTransactions.length}</span> transaksi</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleExport('csv')} disabled={exporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 text-xs font-bold transition-all disabled:opacity-50">
+              <Download className="w-3.5 h-3.5" /> CSV
+            </button>
+            <button onClick={() => handleExport('pdf')} disabled={exporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black border border-amber-400 hover:bg-amber-400 text-xs font-bold transition-all disabled:opacity-50">
+              <FileDown className="w-3.5 h-3.5" /> PDF
+            </button>
+          </div>
         </div>
       </motion.div>
 
