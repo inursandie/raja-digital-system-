@@ -9,6 +9,7 @@ import SIJInput from '@/pages/SIJInput';
 import SIJList from '@/pages/SIJList';
 import Drivers from '@/pages/Drivers';
 import AuditLog from '@/pages/AuditLog';
+import RitaseList from '@/pages/RitaseList';
 import Layout from '@/components/Layout';
 
 const PrivateRoute = () => {
@@ -41,6 +42,7 @@ function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/sij" element={<SIJInput />} />
               <Route path="/sij-list" element={<SIJList />} />
+              <Route path="/ritase" element={<RitaseList />} />
               <Route path="/drivers" element={<Drivers />} />
               <Route path="/audit" element={<AuditLog />} />
             </Route>

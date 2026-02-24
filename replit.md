@@ -23,12 +23,14 @@ RAJA Digital System v1.0 - A driver management and SIJ (Surat Izin Jalan) transa
 
 ### Database
 - **Type**: PostgreSQL (Replit built-in, via DATABASE_URL)
-- **Tables**: users, drivers, sij_transactions, audit_log
+- **Tables**: users, drivers, sij_transactions, audit_log, ritase
 - **Auto-seed**: On first startup, seeds 5 admin users, 50 drivers, ~200 sample transactions
 
 ### Key Files
 - `backend/server.py` - Full backend API
 - `frontend/src/context/AuthContext.jsx` - Auth context (API = '/api')
+- `frontend/src/pages/RitaseList.jsx` - Ritase CRUD page
+- `frontend/src/pages/SIJList.jsx` - SIJ List with full CRUD
 - `frontend/craco.config.js` - Dev server config (port 5000, allowedHosts: all)
 - `frontend/package.json` - Includes proxy to http://localhost:8000
 
@@ -38,6 +40,15 @@ RAJA Digital System v1.0 - A driver management and SIJ (Surat Izin Jalan) transa
 - Super Admin: superadmin@raja.id / superadmin123
 
 ## Recent Changes
+- **2026-02-24**: Added Ritase module + full SIJ CRUD
+  - New `ritase` database table (driver_id, date, trip_details, origin, destination, passengers, notes, admin tracking)
+  - Full Ritase CRUD: GET/POST/PUT/DELETE `/api/ritase` + `/api/ritase/{id}`
+  - Ritase PDF/CSV export: `/api/ritase/export/csv`, `/api/ritase/export/pdf`
+  - New sidebar menu: "List Ritase Driver" at `/ritase` route
+  - Dashboard widget: "Ranking Driver Berdasarkan Ritase" (top 10 by monthly trip count)
+  - Dashboard KPI: "Ritase Hari Ini" card
+  - SIJ full CRUD: Added PUT `/api/sij/{id}` for update, + Tambah SIJ button, Edit/Delete icons in actions column
+  - Date range filtering and search for Ritase
 - **2026-02-24**: Added export and CRUD features
   - PDF/CSV export for Drivers table (`/api/drivers/export/csv`, `/api/drivers/export/pdf`)
   - PDF/CSV export for SIJ transactions (`/api/sij/export/csv`, `/api/sij/export/pdf`)
@@ -55,7 +66,10 @@ RAJA Digital System v1.0 - A driver management and SIJ (Surat Izin Jalan) transa
   - Added CRA proxy to forward /api requests to backend on port 8000
 
 ## Route Ordering Note
-In FastAPI, static routes (e.g., `/drivers/export/csv`) must be defined BEFORE parameterized routes (e.g., `/drivers/{driver_id}`) to avoid path conflicts.
+In FastAPI, static routes (e.g., `/drivers/export/csv`, `/ritase/export/csv`) must be defined BEFORE parameterized routes (e.g., `/drivers/{driver_id}`, `/ritase/{ritase_id}`) to avoid path conflicts.
+
+## User Preferences
+- Do not spend time on CSS/Styling - focus on backend endpoints and basic logic only
 
 ## Workflow
 - Single workflow "Start application" runs both backend (uvicorn on port 8000) and frontend (craco on port 5000)

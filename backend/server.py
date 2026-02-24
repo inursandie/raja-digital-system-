@@ -100,6 +100,34 @@ class DriverUpdateRequest(BaseModel):
     status: Optional[str] = None
 
 
+class SIJUpdateRequest(BaseModel):
+    driver_id: Optional[str] = None
+    sheets: Optional[int] = None
+    qris_ref: Optional[str] = None
+    date: Optional[str] = None
+    amount: Optional[int] = None
+
+
+class RitaseCreateRequest(BaseModel):
+    driver_id: str
+    date: str
+    trip_details: str = ""
+    origin: str = ""
+    destination: str = ""
+    passengers: int = 0
+    notes: str = ""
+
+
+class RitaseUpdateRequest(BaseModel):
+    driver_id: Optional[str] = None
+    date: Optional[str] = None
+    trip_details: Optional[str] = None
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    passengers: Optional[int] = None
+    notes: Optional[str] = None
+
+
 def row_to_dict(row):
     if row is None:
         return None
@@ -493,6 +521,31 @@ async def void_sij(transaction_id: str, user: dict = Depends(require_admin)):
     return {"message": "Transaksi di-void"}
 
 
+@api_router.put("/sij/{transaction_id}")
+async def update_sij(transaction_id: str, data: SIJUpdateRequest, user: dict = Depends(require_superadmin)):
+    existing = await pool.fetchrow("SELECT * FROM sij_transactions WHERE transaction_id = $1", transaction_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Transaksi tidak ditemukan")
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if 'driver_id' in update_data:
+        driver_row = await pool.fetchrow("SELECT name, category FROM drivers WHERE driver_id = $1", update_data['driver_id'])
+        if not driver_row:
+            raise HTTPException(status_code=400, detail="Driver tidak ditemukan")
+        update_data['driver_name'] = driver_row['name']
+        update_data['category'] = driver_row['category']
+    if update_data:
+        sets = []
+        params = []
+        idx = 1
+        for k, v in update_data.items():
+            sets.append(f"{k} = ${idx}")
+            params.append(v)
+            idx += 1
+        params.append(transaction_id)
+        await pool.execute(f"UPDATE sij_transactions SET {', '.join(sets)} WHERE transaction_id = ${idx}", *params)
+    return {"message": "Transaksi SIJ diperbarui"}
+
+
 @api_router.delete("/sij/{transaction_id}")
 async def delete_sij(transaction_id: str, user: dict = Depends(require_superadmin)):
     existing = await pool.fetchrow("SELECT transaction_id FROM sij_transactions WHERE transaction_id = $1", transaction_id)
@@ -500,6 +553,184 @@ async def delete_sij(transaction_id: str, user: dict = Depends(require_superadmi
         raise HTTPException(status_code=404, detail="Transaksi tidak ditemukan")
     await pool.execute("DELETE FROM sij_transactions WHERE transaction_id = $1", transaction_id)
     return {"message": "Transaksi berhasil dihapus"}
+
+
+# =================== RITASE ===================
+
+RITASE_SORT_COLS = {"id", "driver_name", "driver_id", "date", "origin", "destination", "passengers", "created_at"}
+
+@api_router.get("/ritase")
+async def get_ritase(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+    user: dict = Depends(get_current_user)
+):
+    conditions = []
+    params = []
+    idx = 1
+    if date_from:
+        conditions.append(f"date >= ${idx}")
+        params.append(date_from)
+        idx += 1
+    if date_to:
+        conditions.append(f"date <= ${idx}")
+        params.append(date_to)
+        idx += 1
+    if search:
+        conditions.append(f"(driver_name ILIKE ${idx} OR driver_id ILIKE ${idx} OR trip_details ILIKE ${idx})")
+        params.append(f"%{search}%")
+        idx += 1
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    col = sort_by if sort_by in RITASE_SORT_COLS else "created_at"
+    direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
+    rows = await pool.fetch(
+        f"SELECT id, driver_id, driver_name, date, trip_details, origin, destination, passengers, notes, admin_name, shift, created_at FROM ritase {where} ORDER BY {col} {direction}",
+        *params
+    )
+    return rows_to_list(rows)
+
+
+@api_router.post("/ritase")
+async def create_ritase(data: RitaseCreateRequest, user: dict = Depends(require_admin)):
+    driver_row = await pool.fetchrow("SELECT name FROM drivers WHERE driver_id = $1", data.driver_id)
+    if not driver_row:
+        raise HTTPException(status_code=400, detail="Driver tidak ditemukan")
+    now = datetime.now(JAKARTA_TZ)
+    created_at = now.isoformat()
+    await pool.execute(
+        """INSERT INTO ritase (driver_id, driver_name, date, trip_details, origin, destination, passengers, notes, admin_id, admin_name, shift, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)""",
+        data.driver_id, driver_row['name'], data.date, data.trip_details, data.origin, data.destination,
+        data.passengers, data.notes, user['user_id'], user['name'], detect_shift(), created_at
+    )
+    await pool.execute(
+        """INSERT INTO audit_log (date, driver_id, has_sij, has_trip, mismatch)
+        VALUES ($1, $2, false, true, false)
+        ON CONFLICT (date, driver_id) DO UPDATE SET has_trip = true""",
+        data.date, data.driver_id
+    )
+    return {"message": "Ritase berhasil ditambahkan"}
+
+
+@api_router.get("/ritase/export/csv")
+async def export_ritase_csv(date_from: Optional[str] = None, date_to: Optional[str] = None, user: dict = Depends(get_current_user)):
+    conditions = []
+    params = []
+    idx = 1
+    if date_from:
+        conditions.append(f"date >= ${idx}")
+        params.append(date_from)
+        idx += 1
+    if date_to:
+        conditions.append(f"date <= ${idx}")
+        params.append(date_to)
+        idx += 1
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    rows = await pool.fetch(f"SELECT id, driver_id, driver_name, date, trip_details, origin, destination, passengers, notes, admin_name, shift FROM ritase {where} ORDER BY date DESC, created_at DESC", *params)
+    data = rows_to_list(rows)
+    output = io.StringIO()
+    fields = ["id", "driver_id", "driver_name", "date", "trip_details", "origin", "destination", "passengers", "notes", "admin_name", "shift"]
+    writer = csv.DictWriter(output, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(data)
+    output.seek(0)
+    fname = f"ritase_{date_from or 'all'}_{date_to or 'all'}.csv"
+    return StreamingResponse(io.BytesIO(output.getvalue().encode()), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@api_router.get("/ritase/export/pdf")
+async def export_ritase_pdf(date_from: Optional[str] = None, date_to: Optional[str] = None, user: dict = Depends(get_current_user)):
+    conditions = []
+    params = []
+    idx = 1
+    if date_from:
+        conditions.append(f"date >= ${idx}")
+        params.append(date_from)
+        idx += 1
+    if date_to:
+        conditions.append(f"date <= ${idx}")
+        params.append(date_to)
+        idx += 1
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    rows = await pool.fetch(f"SELECT id, driver_id, driver_name, date, trip_details, origin, destination, passengers, notes, admin_name, shift FROM ritase {where} ORDER BY date DESC, created_at DESC", *params)
+    data = rows_to_list(rows)
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('RitTitle', parent=styles['Title'], fontSize=16, spaceAfter=6)
+    sub_style = ParagraphStyle('RitSub', parent=styles['Normal'], fontSize=10, spaceAfter=10, textColor=colors.grey)
+    period = ""
+    if date_from and date_to:
+        period = f"Periode: {date_from} s/d {date_to}"
+    elif date_from:
+        period = f"Dari: {date_from}"
+    elif date_to:
+        period = f"Sampai: {date_to}"
+    else:
+        period = "Semua data"
+    elements = [
+        Paragraph("RAJA Digital System - Laporan Ritase", title_style),
+        Paragraph(f"{period} | Total: {len(data)} ritase", sub_style),
+        Spacer(1, 3*mm),
+    ]
+    header = ["No", "Driver", "Driver ID", "Tanggal", "Detail Trip", "Asal", "Tujuan", "Penumpang", "Admin", "Shift"]
+    tdata = [header]
+    for i, d in enumerate(data, 1):
+        tdata.append([str(i), d['driver_name'], d['driver_id'], d['date'], d['trip_details'], d['origin'], d['destination'], str(d['passengers']), d['admin_name'], d['shift']])
+    t = Table(tdata, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f59e0b')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buf.seek(0)
+    fname = f"ritase_{date_from or 'all'}_{date_to or 'all'}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@api_router.put("/ritase/{ritase_id}")
+async def update_ritase(ritase_id: int, data: RitaseUpdateRequest, user: dict = Depends(require_superadmin)):
+    existing = await pool.fetchrow("SELECT id FROM ritase WHERE id = $1", ritase_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Ritase tidak ditemukan")
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if 'driver_id' in update_data:
+        driver_row = await pool.fetchrow("SELECT name FROM drivers WHERE driver_id = $1", update_data['driver_id'])
+        if not driver_row:
+            raise HTTPException(status_code=400, detail="Driver tidak ditemukan")
+        update_data['driver_name'] = driver_row['name']
+    if update_data:
+        sets = []
+        params = []
+        idx = 1
+        for k, v in update_data.items():
+            sets.append(f"{k} = ${idx}")
+            params.append(v)
+            idx += 1
+        params.append(ritase_id)
+        await pool.execute(f"UPDATE ritase SET {', '.join(sets)} WHERE id = ${idx}", *params)
+    return {"message": "Ritase diperbarui"}
+
+
+@api_router.delete("/ritase/{ritase_id}")
+async def delete_ritase(ritase_id: int, user: dict = Depends(require_superadmin)):
+    existing = await pool.fetchrow("SELECT id FROM ritase WHERE id = $1", ritase_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Ritase tidak ditemukan")
+    await pool.execute("DELETE FROM ritase WHERE id = $1", ritase_id)
+    return {"message": "Ritase berhasil dihapus"}
 
 
 # =================== DASHBOARD ===================
@@ -576,6 +807,11 @@ async def superadmin_dashboard(user: dict = Depends(require_superadmin)):
     mismatch_list = await pool.fetch(
         "SELECT driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month FROM drivers WHERE mismatch_count > 0 ORDER BY mismatch_count DESC LIMIT 100"
     )
+    ritase_ranking = await pool.fetch(
+        "SELECT r.driver_id, r.driver_name, COUNT(*) as trip_count FROM ritase r WHERE r.date LIKE $1 GROUP BY r.driver_id, r.driver_name ORDER BY trip_count DESC LIMIT 10",
+        month_prefix
+    )
+    total_ritase_today = await pool.fetchval("SELECT COUNT(*) FROM ritase WHERE date = $1", today)
     return {
         "total_sij_today": total_sij_today,
         "total_revenue_today": total_revenue_today,
@@ -584,6 +820,8 @@ async def superadmin_dashboard(user: dict = Depends(require_superadmin)):
         "total_drivers": total_drivers,
         "active_drivers": active_drivers,
         "suspended_drivers": suspended_drivers,
+        "total_ritase_today": total_ritase_today,
+        "ritase_ranking": rows_to_list(ritase_ranking),
         "sij_per_shift": [
             {"name": "Shift 1", "value": shift1_sij, "fill": "#f59e0b"},
             {"name": "Shift 2", "value": shift2_sij, "fill": "#0ea5e9"},
@@ -703,6 +941,23 @@ async def create_tables():
             has_trip BOOLEAN DEFAULT false,
             mismatch BOOLEAN DEFAULT false,
             UNIQUE(date, driver_id)
+        )
+    """)
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS ritase (
+            id SERIAL PRIMARY KEY,
+            driver_id VARCHAR(50) NOT NULL,
+            driver_name VARCHAR(100),
+            date VARCHAR(10) NOT NULL,
+            trip_details TEXT DEFAULT '',
+            origin VARCHAR(100) DEFAULT '',
+            destination VARCHAR(100) DEFAULT '',
+            passengers INTEGER DEFAULT 0,
+            notes TEXT DEFAULT '',
+            admin_id VARCHAR(50),
+            admin_name VARCHAR(100),
+            shift VARCHAR(10),
+            created_at TEXT
         )
     """)
 

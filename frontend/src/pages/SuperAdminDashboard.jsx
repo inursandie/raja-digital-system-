@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
-import { TrendingUp, DollarSign, Users, AlertTriangle, RefreshCw, Ban } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, AlertTriangle, RefreshCw, Ban, Truck, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 
 function useCountUp(target) {
@@ -222,10 +222,11 @@ export default function SuperAdminDashboard() {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard title="SIJ Hari Ini" value={data && data.total_sij_today} icon={TrendingUp} color="amber" delay={0} />
         <KPICard title="Revenue Hari Ini" value={data && data.total_revenue_today} icon={DollarSign} color="emerald" prefix="Rp " delay={0.07} />
         <KPICard title="Driver Aktif" value={data && data.active_drivers} icon={Users} color="sky" subtitle={driverSubtitle} delay={0.14} />
+        <KPICard title="Ritase Hari Ini" value={data && data.total_ritase_today} icon={Truck} color="purple" delay={0.21} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -240,7 +241,47 @@ export default function SuperAdminDashboard() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="glass-card rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/50">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <h2 className="text-sm font-semibold text-zinc-100">Ranking Driver Berdasarkan Ritase</h2>
+            </div>
+            <span className="text-xs font-mono text-zinc-500">Bulan Ini</span>
+          </div>
+          <div className="overflow-x-auto max-h-64 scrollbar-thin">
+            {!(data && data.ritase_ranking && data.ritase_ranking.length) ? (
+              <div className="py-10 text-center text-zinc-500 text-sm">Belum ada data ritase bulan ini</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-800/50">
+                    <th className="text-left px-4 py-3 text-label">Rank</th>
+                    <th className="text-left px-4 py-3 text-label">Nama Driver</th>
+                    <th className="text-right px-4 py-3 text-label">Total Trip</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.ritase_ranking || []).map(function(d, idx) {
+                    var rankColor = idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-zinc-300' : idx === 2 ? 'text-orange-400' : 'text-zinc-500';
+                    return (
+                      <tr key={d.driver_id} className="border-b border-zinc-800/30 hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-3"><span className={'font-bold font-mono text-sm ' + rankColor}>#{idx + 1}</span></td>
+                        <td className="px-4 py-3">
+                          <div className="text-zinc-100 text-sm">{d.driver_name}</div>
+                          <div className="text-xs font-mono text-zinc-500">{d.driver_id}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right"><span className="font-bold font-mono text-sm text-amber-400">{d.trip_count}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </motion.div>
+
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="glass-card rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/50">
             <div className="flex items-center gap-2">

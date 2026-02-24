@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard, FileText, Users, ClipboardList, List,
-  LogOut, Menu, X, ChevronRight, Car
+  LogOut, Menu, X, ChevronRight, Car, Truck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,6 +11,7 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['admin', 'superadmin'] },
   { icon: FileText, label: 'Input SIJ', path: '/sij', roles: ['admin', 'superadmin'] },
   { icon: List, label: 'List SIJ', path: '/sij-list', roles: ['admin', 'superadmin'] },
+  { icon: Truck, label: 'List Ritase Driver', path: '/ritase', roles: ['admin', 'superadmin'] },
   { icon: Users, label: 'Data Driver', path: '/drivers', roles: ['superadmin'] },
   { icon: ClipboardList, label: 'Audit Log', path: '/audit', roles: ['superadmin'] },
 ];
