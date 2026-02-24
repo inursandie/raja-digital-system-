@@ -231,7 +231,7 @@ export default function RitaseList() {
                               <div>
                                 <span className="text-zinc-100 text-sm font-medium">{d.name}</span>
                                 <span className={`ml-2 text-xs font-mono ${d.category === 'premium' ? 'text-amber-400' : 'text-zinc-500'}`}>
-                                  {d.category === 'premium' ? 'PREMIUM' : 'REGULAR'}
+                                  {d.category === 'premium' ? 'PREMIUM' : 'STANDAR'}
                                 </span>
                               </div>
                               <span className="text-xs font-mono text-zinc-500">{d.plate}</span>

@@ -88,7 +88,7 @@ class DriverCreateRequest(BaseModel):
     name: str
     phone: str = ""
     plate: str = ""
-    category: str = "reg"
+    category: str = "standar"
     status: str = "active"
 
 
@@ -314,8 +314,8 @@ async def create_sij(req: SIJCreateRequest, user: dict = Depends(require_admin))
     driver = dict(driver_row)
     now = datetime.now(JAKARTA_TZ)
 
-    PRICE_MAP = {"reg": 40000, "premium": 60000}
-    category = driver.get("category", "reg")
+    PRICE_MAP = {"standar": 40000, "premium": 60000}
+    category = driver.get("category", "standar")
     amount = PRICE_MAP.get(category, 40000)
 
     if req.date:
@@ -976,7 +976,7 @@ async def create_tables():
             name VARCHAR(100) NOT NULL,
             phone VARCHAR(30),
             plate VARCHAR(20),
-            category VARCHAR(20) DEFAULT 'reg',
+            category VARCHAR(20) DEFAULT 'standar',
             status VARCHAR(20) DEFAULT 'active',
             mismatch_count INTEGER DEFAULT 0,
             total_sij_month INTEGER DEFAULT 0
@@ -1065,7 +1065,7 @@ async def seed_initial_data():
         await pool.execute(
             "INSERT INTO drivers (driver_id, name, phone, plate, category, status, mismatch_count, total_sij_month) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING",
             did, DRIVER_NAMES[i], f"0812{str(10000000+i).zfill(8)}", f"B {1000+i} XY",
-            "premium" if i % 3 == 0 else "reg", status, MISMATCH_DATA.get(did, 0), 0
+            "premium" if i % 3 == 0 else "standar", status, MISMATCH_DATA.get(did, 0), 0
         )
 
     active_dids = [f"driver{str(i+1).zfill(3)}" for i in range(50)
@@ -1097,7 +1097,7 @@ async def seed_initial_data():
         await pool.execute(
             """INSERT INTO sij_transactions (transaction_id, driver_id, driver_name, category, date, time, sheets, amount, qris_ref, admin_id, admin_name, shift, status, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT DO NOTHING""",
-            tx_id, did, DRIVER_NAMES[driver_idx], "premium" if driver_idx % 3 == 0 else "reg",
+            tx_id, did, DRIVER_NAMES[driver_idx], "premium" if driver_idx % 3 == 0 else "standar",
             day, time_str, sheets, 40000, f"QRIS{random.randint(100000,999999)}",
             admin_id, ADMIN_NAMES[admin_id], shift, "active", f"{day}T{time_str}+07:00"
         )

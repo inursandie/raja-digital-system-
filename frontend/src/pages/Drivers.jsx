@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Search, Ban, CheckCircle2, Edit2, X, Download, FileDown, Plus, Trash2 } from 'lucide-react';
 import { StatusBadge } from './AdminDashboard';
 
-const CATEGORY_LABELS = { reg: 'Regular', premium: 'Premium' };
+const CATEGORY_LABELS = { standar: 'Standar', reg: 'Standar', premium: 'Premium' };
 
 const EditModal = ({ driver, onClose, onSave }) => {
   const [form, setForm] = useState({
@@ -57,7 +57,7 @@ const EditModal = ({ driver, onClose, onSave }) => {
               <label className="text-label block mb-1.5">Kategori</label>
               <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all">
-                <option value="reg">Regular</option>
+                <option value="standar">Standar</option>
                 <option value="premium">Premium</option>
               </select>
             </div>
@@ -93,7 +93,7 @@ const CreateModal = ({ onClose, onCreate }) => {
     name: '',
     phone: '',
     plate: '',
-    category: 'reg',
+    category: 'standar',
     status: 'active',
   });
   const [saving, setSaving] = useState(false);
@@ -149,7 +149,7 @@ const CreateModal = ({ onClose, onCreate }) => {
               <label className="text-label block mb-1.5">Kategori</label>
               <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm transition-all">
-                <option value="reg">Regular</option>
+                <option value="standar">Standar</option>
                 <option value="premium">Premium</option>
               </select>
             </div>

@@ -17,7 +17,7 @@ const formatRupiah = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', 
 const printReceiptBrowser = (tx) => {
   const amount = tx.amount || 40000;
   const amountFormatted = new Intl.NumberFormat('id-ID').format(amount);
-  const categoryLabel = tx.category === 'premium' ? 'PREMIUM' : 'REGULAR';
+  const categoryLabel = tx.category === 'premium' ? 'PREMIUM' : 'STANDAR';
   const tickets = Array.from({ length: tx.sheets }, (_, i) => `
     <div class="ticket">
       <div class="header">
@@ -70,7 +70,7 @@ const generateESCPOSCommands = (tx) => {
   const CUT = GS + 'V\x41\x00'; const DASHES = '--------------------------------';
   const amount = tx.amount || 40000;
   const amountFormatted = new Intl.NumberFormat('id-ID').format(amount);
-  const categoryLabel = tx.category === 'premium' ? 'PREMIUM' : 'REGULAR';
+  const categoryLabel = tx.category === 'premium' ? 'PREMIUM' : 'STANDAR';
   let commands = [];
   for (let i = 0; i < tx.sheets; i++) {
     let r = INIT + CENTER + BOLD_ON + DOUBLE_HEIGHT + 'RAJA DIGITAL SYSTEM' + LF + NORMAL_SIZE + BOLD_OFF + 'SIJ - Soetta Airport' + LF + DASHES + LF;
@@ -411,7 +411,7 @@ export default function SIJList() {
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="space-y-1"><div className="flex items-center gap-1.5 text-label"><User className="w-3 h-3" /> Driver</div><p className="text-zinc-100">{selectedTx.driver_name}</p><p className="text-xs text-zinc-500 font-mono">{selectedTx.driver_id}</p></div>
-                  <div className="space-y-1"><div className="text-label">Kategori</div><p className={`font-mono ${selectedTx.category === 'premium' ? 'text-amber-400' : 'text-zinc-300'}`}>{selectedTx.category === 'premium' ? 'PREMIUM' : 'REGULAR'}</p></div>
+                  <div className="space-y-1"><div className="text-label">Kategori</div><p className={`font-mono ${selectedTx.category === 'premium' ? 'text-amber-400' : 'text-zinc-300'}`}>{selectedTx.category === 'premium' ? 'PREMIUM' : 'STANDAR'}</p></div>
                   <div className="space-y-1"><div className="flex items-center gap-1.5 text-label"><CalendarDays className="w-3 h-3" /> Tanggal</div><p className="text-zinc-100 font-mono">{selectedTx.date}</p></div>
                   <div className="space-y-1"><div className="flex items-center gap-1.5 text-label"><Clock className="w-3 h-3" /> Waktu</div><p className="text-zinc-100 font-mono">{selectedTx.time}</p></div>
                   <div className="space-y-1"><div className="text-label">Admin</div><p className="text-zinc-100">{selectedTx.admin_name}</p><p className="text-xs text-zinc-500">{selectedTx.shift}</p></div>
@@ -423,7 +423,7 @@ export default function SIJList() {
                   <p className="font-mono text-sm text-zinc-300 bg-zinc-900/50 px-3 py-2 rounded-lg">{selectedTx.qris_ref}</p>
                 </div>
                 <div className={`rounded-lg p-3 text-center border ${selectedTx.category === 'premium' ? 'bg-amber-900/20 border-amber-500/20' : 'bg-emerald-900/20 border-emerald-500/20'}`}>
-                  <div className={`text-xs mb-1 ${selectedTx.category === 'premium' ? 'text-amber-400/70' : 'text-emerald-400/70'}`}>Total Pembayaran ({selectedTx.category === 'premium' ? 'Premium' : 'Regular'})</div>
+                  <div className={`text-xs mb-1 ${selectedTx.category === 'premium' ? 'text-amber-400/70' : 'text-emerald-400/70'}`}>Total Pembayaran ({selectedTx.category === 'premium' ? 'Premium' : 'Standar'})</div>
                   <div className={`text-xl font-bold font-mono ${selectedTx.category === 'premium' ? 'text-amber-400' : 'text-emerald-400'}`}>{formatRupiah(selectedTx.amount || 40000)}</div>
                 </div>
               </div>

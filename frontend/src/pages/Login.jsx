@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { toast } from 'sonner';
-import { Car, Eye, EyeOff, LogIn } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
+import { Car, Eye, EyeOff, LogIn } from "lucide-react";
+import { motion } from "framer-motion";
 
-const BG_URL = "https://images.unsplash.com/photo-1483729558449-99ef09a8c325?crop=entropy&cs=srgb&fm=jpg&w=1920&q=80";
+const BG_URL = "https://i.ibb.co.com/hJNPRvCv/RAJA-Wallpaper.jpg";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -18,16 +18,16 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Username dan password harus diisi');
+      toast.error("Username dan password harus diisi");
       return;
     }
     setLoading(true);
     try {
       const user = await login(email, password);
       toast.success(`Selamat datang, ${user.name}!`);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      toast.error(err?.response?.data?.detail || 'Login gagal');
+      toast.error(err?.response?.data?.detail || "Login gagal");
     } finally {
       setLoading(false);
     }
@@ -49,34 +49,51 @@ export default function Login() {
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="relative z-10 w-full max-w-md mx-4"
       >
         <div className="glass-card rounded-2xl p-8 border border-white/10">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center">
-              <Car className="w-7 h-7 text-black" />
+            <div className="w-12 h-12 rounded-xl bg-white-500 flex items-center justify-center">
+              <img
+                src="https://i.ibb.co.com/j9n9Yqpk/Logo-RAJA-square.png"
+                className="w-10 h-auto object-contain"
+                alt="RAJA Logo"
+              />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-white leading-tight" style={{ fontFamily: 'Chivo, sans-serif' }}>
+              <h1
+                className="text-2xl font-black text-white leading-tight"
+                style={{ fontFamily: "Chivo, sans-serif" }}
+              >
                 RAJA
               </h1>
-              <p className="text-zinc-400 text-xs">Digital System v1.0 — Soetta Airport</p>
+              <p className="text-zinc-400 text-xs">
+                Digital System v1.0 — Soekarno-Hatta Airport
+              </p>
             </div>
           </div>
 
-          <h2 className="text-lg font-bold text-zinc-100 mb-1">Masuk ke Dashboard</h2>
-          <p className="text-zinc-500 text-sm mb-6">Masukkan kredensial akun Anda</p>
+          <h2 className="text-lg font-bold text-zinc-100 mb-1">
+            Masuk ke Dashboard
+          </h2>
+          <p className="text-zinc-500 text-sm mb-6">
+            Masukkan kredensial akun Anda
+          </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4" data-testid="login-form">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+            data-testid="login-form"
+          >
             <div>
               <label className="text-label block mb-1.5">Username</label>
               <input
                 data-testid="email-input"
                 type="text"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Masukkan username"
                 className="w-full px-4 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 outline-none text-zinc-100 placeholder:text-zinc-600 text-sm transition-all"
               />
@@ -86,9 +103,9 @@ export default function Login() {
               <div className="relative">
                 <input
                   data-testid="password-input"
-                  type={showPwd ? 'text' : 'password'}
+                  type={showPwd ? "text" : "password"}
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full px-4 py-2.5 pr-10 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 outline-none text-zinc-100 placeholder:text-zinc-600 text-sm transition-all"
                 />
@@ -97,7 +114,11 @@ export default function Login() {
                   onClick={() => setShowPwd(!showPwd)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
-                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPwd ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -117,7 +138,6 @@ export default function Login() {
               )}
             </button>
           </form>
-
         </div>
       </motion.div>
     </div>
