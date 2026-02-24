@@ -8,8 +8,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-REACT_APP_BACKEND_URL = ""
-DB_NAME = "raja_digital"
 
 [workflows]
 runButton = "Project"
@@ -38,3 +36,8 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "cd /home/runner/workspace && python -m uvicorn backend.server:app --host 0.0.0.0 --port 5000"]
+build = ["bash", "-c", "cd /home/runner/workspace/frontend && npx craco build"]
