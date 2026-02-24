@@ -10,6 +10,7 @@ import SIJList from '@/pages/SIJList';
 import Drivers from '@/pages/Drivers';
 import AuditLog from '@/pages/AuditLog';
 import RitaseList from '@/pages/RitaseList';
+import UserManagement from '@/pages/UserManagement';
 import Layout from '@/components/Layout';
 
 const PrivateRoute = () => {
@@ -45,6 +46,7 @@ function App() {
               <Route path="/ritase" element={<RitaseList />} />
               <Route path="/drivers" element={<Drivers />} />
               <Route path="/audit" element={<AuditLog />} />
+              <Route path="/user-management" element={<UserManagement />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

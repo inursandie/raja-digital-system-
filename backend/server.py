@@ -111,21 +111,32 @@ class SIJUpdateRequest(BaseModel):
 class RitaseCreateRequest(BaseModel):
     driver_id: str
     date: str
-    trip_details: str = ""
-    origin: str = ""
-    destination: str = ""
-    passengers: int = 0
+    waktu_ritase: str = ""
     notes: str = ""
 
 
 class RitaseUpdateRequest(BaseModel):
     driver_id: Optional[str] = None
     date: Optional[str] = None
-    trip_details: Optional[str] = None
-    origin: Optional[str] = None
-    destination: Optional[str] = None
-    passengers: Optional[int] = None
+    waktu_ritase: Optional[str] = None
     notes: Optional[str] = None
+
+
+class UserCreateRequest(BaseModel):
+    user_id: str
+    name: str
+    email: str
+    password: str
+    role: str
+    shift: Optional[str] = None
+
+
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[str] = None
+    shift: Optional[str] = None
 
 
 def row_to_dict(row):
@@ -557,7 +568,7 @@ async def delete_sij(transaction_id: str, user: dict = Depends(require_superadmi
 
 # =================== RITASE ===================
 
-RITASE_SORT_COLS = {"id", "driver_name", "driver_id", "date", "origin", "destination", "passengers", "created_at"}
+RITASE_SORT_COLS = {"id", "driver_name", "driver_id", "date", "waktu_ritase", "created_at"}
 
 @api_router.get("/ritase")
 async def get_ritase(
@@ -580,14 +591,14 @@ async def get_ritase(
         params.append(date_to)
         idx += 1
     if search:
-        conditions.append(f"(driver_name ILIKE ${idx} OR driver_id ILIKE ${idx} OR trip_details ILIKE ${idx})")
+        conditions.append(f"(driver_name ILIKE ${idx} OR driver_id ILIKE ${idx})")
         params.append(f"%{search}%")
         idx += 1
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
     col = sort_by if sort_by in RITASE_SORT_COLS else "created_at"
     direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
     rows = await pool.fetch(
-        f"SELECT id, driver_id, driver_name, date, trip_details, origin, destination, passengers, notes, admin_name, shift, created_at FROM ritase {where} ORDER BY {col} {direction}",
+        f"SELECT id, driver_id, driver_name, date, waktu_ritase, notes, admin_name, shift, created_at FROM ritase {where} ORDER BY {col} {direction}",
         *params
     )
     return rows_to_list(rows)
@@ -601,10 +612,10 @@ async def create_ritase(data: RitaseCreateRequest, user: dict = Depends(require_
     now = datetime.now(JAKARTA_TZ)
     created_at = now.isoformat()
     await pool.execute(
-        """INSERT INTO ritase (driver_id, driver_name, date, trip_details, origin, destination, passengers, notes, admin_id, admin_name, shift, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)""",
-        data.driver_id, driver_row['name'], data.date, data.trip_details, data.origin, data.destination,
-        data.passengers, data.notes, user['user_id'], user['name'], detect_shift(), created_at
+        """INSERT INTO ritase (driver_id, driver_name, date, waktu_ritase, notes, admin_id, admin_name, shift, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
+        data.driver_id, driver_row['name'], data.date, data.waktu_ritase,
+        data.notes, user['user_id'], user['name'], detect_shift(), created_at
     )
     await pool.execute(
         """INSERT INTO audit_log (date, driver_id, has_sij, has_trip, mismatch)
@@ -629,10 +640,10 @@ async def export_ritase_csv(date_from: Optional[str] = None, date_to: Optional[s
         params.append(date_to)
         idx += 1
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
-    rows = await pool.fetch(f"SELECT id, driver_id, driver_name, date, trip_details, origin, destination, passengers, notes, admin_name, shift FROM ritase {where} ORDER BY date DESC, created_at DESC", *params)
+    rows = await pool.fetch(f"SELECT id, driver_id, driver_name, date, waktu_ritase, notes, admin_name, shift FROM ritase {where} ORDER BY date DESC, created_at DESC", *params)
     data = rows_to_list(rows)
     output = io.StringIO()
-    fields = ["id", "driver_id", "driver_name", "date", "trip_details", "origin", "destination", "passengers", "notes", "admin_name", "shift"]
+    fields = ["id", "driver_id", "driver_name", "date", "waktu_ritase", "notes", "admin_name", "shift"]
     writer = csv.DictWriter(output, fieldnames=fields)
     writer.writeheader()
     writer.writerows(data)
@@ -655,7 +666,7 @@ async def export_ritase_pdf(date_from: Optional[str] = None, date_to: Optional[s
         params.append(date_to)
         idx += 1
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
-    rows = await pool.fetch(f"SELECT id, driver_id, driver_name, date, trip_details, origin, destination, passengers, notes, admin_name, shift FROM ritase {where} ORDER BY date DESC, created_at DESC", *params)
+    rows = await pool.fetch(f"SELECT id, driver_id, driver_name, date, waktu_ritase, notes, admin_name, shift FROM ritase {where} ORDER BY date DESC, created_at DESC", *params)
     data = rows_to_list(rows)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), topMargin=15*mm, bottomMargin=15*mm)
@@ -676,10 +687,10 @@ async def export_ritase_pdf(date_from: Optional[str] = None, date_to: Optional[s
         Paragraph(f"{period} | Total: {len(data)} ritase", sub_style),
         Spacer(1, 3*mm),
     ]
-    header = ["No", "Driver", "Driver ID", "Tanggal", "Detail Trip", "Asal", "Tujuan", "Penumpang", "Admin", "Shift"]
+    header = ["No", "Driver", "Driver ID", "Tanggal", "Waktu Ritase", "Catatan", "Admin", "Shift"]
     tdata = [header]
     for i, d in enumerate(data, 1):
-        tdata.append([str(i), d['driver_name'], d['driver_id'], d['date'], d['trip_details'], d['origin'], d['destination'], str(d['passengers']), d['admin_name'], d['shift']])
+        tdata.append([str(i), d['driver_name'], d['driver_id'], d['date'], d.get('waktu_ritase', ''), d.get('notes', ''), d['admin_name'], d['shift']])
     t = Table(tdata, repeatRows=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f59e0b')),
@@ -731,6 +742,63 @@ async def delete_ritase(ritase_id: int, user: dict = Depends(require_superadmin)
         raise HTTPException(status_code=404, detail="Ritase tidak ditemukan")
     await pool.execute("DELETE FROM ritase WHERE id = $1", ritase_id)
     return {"message": "Ritase berhasil dihapus"}
+
+
+# =================== USER MANAGEMENT ===================
+
+@api_router.get("/users")
+async def get_users(user: dict = Depends(require_superadmin)):
+    rows = await pool.fetch("SELECT user_id, name, role, shift, email FROM users ORDER BY role, name")
+    return rows_to_list(rows)
+
+
+@api_router.post("/users")
+async def create_user(data: UserCreateRequest, user: dict = Depends(require_superadmin)):
+    if data.role not in ["admin", "superadmin"]:
+        raise HTTPException(status_code=400, detail="Role tidak valid")
+    existing = await pool.fetchrow("SELECT user_id FROM users WHERE user_id = $1 OR email = $2", data.user_id, data.email)
+    if existing:
+        raise HTTPException(status_code=409, detail="User ID atau email sudah digunakan")
+    password_hash = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
+    await pool.execute(
+        "INSERT INTO users (user_id, name, role, shift, email, password_hash) VALUES ($1, $2, $3, $4, $5, $6)",
+        data.user_id, data.name, data.role, data.shift, data.email, password_hash
+    )
+    return {"message": "User berhasil dibuat"}
+
+
+@api_router.put("/users/{user_id}")
+async def update_user(user_id: str, data: UserUpdateRequest, current_user: dict = Depends(require_superadmin)):
+    existing = await pool.fetchrow("SELECT user_id FROM users WHERE user_id = $1", user_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if 'password' in update_data:
+        update_data['password_hash'] = bcrypt.hashpw(update_data.pop('password').encode(), bcrypt.gensalt()).decode()
+    if 'role' in update_data and update_data['role'] not in ["admin", "superadmin"]:
+        raise HTTPException(status_code=400, detail="Role tidak valid")
+    if update_data:
+        sets = []
+        params = []
+        idx = 1
+        for k, v in update_data.items():
+            sets.append(f"{k} = ${idx}")
+            params.append(v)
+            idx += 1
+        params.append(user_id)
+        await pool.execute(f"UPDATE users SET {', '.join(sets)} WHERE user_id = ${idx}", *params)
+    return {"message": "User berhasil diperbarui"}
+
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, current_user: dict = Depends(require_superadmin)):
+    if user_id == current_user['user_id']:
+        raise HTTPException(status_code=400, detail="Tidak dapat menghapus akun sendiri")
+    existing = await pool.fetchrow("SELECT user_id FROM users WHERE user_id = $1", user_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    await pool.execute("DELETE FROM users WHERE user_id = $1", user_id)
+    return {"message": "User berhasil dihapus"}
 
 
 # =================== DASHBOARD ===================
@@ -949,10 +1017,7 @@ async def create_tables():
             driver_id VARCHAR(50) NOT NULL,
             driver_name VARCHAR(100),
             date VARCHAR(10) NOT NULL,
-            trip_details TEXT DEFAULT '',
-            origin VARCHAR(100) DEFAULT '',
-            destination VARCHAR(100) DEFAULT '',
-            passengers INTEGER DEFAULT 0,
+            waktu_ritase VARCHAR(20) DEFAULT '',
             notes TEXT DEFAULT '',
             admin_id VARCHAR(50),
             admin_name VARCHAR(100),
@@ -960,6 +1025,15 @@ async def create_tables():
             created_at TEXT
         )
     """)
+    for col in ["trip_details", "origin", "destination", "passengers"]:
+        try:
+            await pool.execute(f"ALTER TABLE ritase DROP COLUMN IF EXISTS {col}")
+        except Exception:
+            pass
+    try:
+        await pool.execute("ALTER TABLE ritase ADD COLUMN IF NOT EXISTS waktu_ritase VARCHAR(20) DEFAULT ''")
+    except Exception:
+        pass
 
 
 async def seed_initial_data():

@@ -1,14 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Search, FileText, X, ChevronLeft, ChevronRight, Download, FileDown,
-  Plus, Pencil, Trash2, MapPin, Users as UsersIcon, TruckIcon
+  Plus, Pencil, Trash2, TruckIcon, Clock
 } from 'lucide-react';
 
-const emptyForm = { driver_id: '', date: '', trip_details: '', origin: '', destination: '', passengers: 0, notes: '' };
+const WAKTU_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+  const from = String(i).padStart(2, '0') + '.00';
+  const to = String((i + 1) % 24).padStart(2, '0') + '.00';
+  return `${from}-${to}`;
+});
+
+const emptyForm = { driver_id: '', date: '', waktu_ritase: '', notes: '' };
 
 export default function RitaseList() {
   const { getAuthHeader, API, user } = useAuth();
@@ -47,7 +53,7 @@ export default function RitaseList() {
   const fetchDrivers = async () => {
     try {
       const res = await axios.get(`${API}/drivers`, { headers: getAuthHeader() });
-      setDrivers(res.data);
+      setDrivers(res.data.filter(d => d.status === 'active'));
     } catch {}
   };
 
@@ -86,8 +92,10 @@ export default function RitaseList() {
   const openEdit = (item) => {
     setEditItem(item);
     setFormData({
-      driver_id: item.driver_id, date: item.date, trip_details: item.trip_details,
-      origin: item.origin, destination: item.destination, passengers: item.passengers, notes: item.notes
+      driver_id: item.driver_id,
+      date: item.date,
+      waktu_ritase: item.waktu_ritase || '',
+      notes: item.notes || ''
     });
   };
 
@@ -121,69 +129,159 @@ export default function RitaseList() {
     }
   };
 
-  const FormModal = ({ title, onClose }) => (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        onClick={e => e.stopPropagation()} className="w-full max-w-lg glass-card rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/50">
-          <h2 className="text-base font-bold text-zinc-100">{title}</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center"><X className="w-4 h-4 text-zinc-400" /></button>
-        </div>
-        <div className="p-5 space-y-4">
-          <div>
-            <label className="text-label text-xs mb-1 block">Driver</label>
-            <select value={formData.driver_id} onChange={e => setFormData(p => ({ ...p, driver_id: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm">
-              <option value="">-- Pilih Driver --</option>
-              {drivers.filter(d => d.status === 'active').map(d => (<option key={d.driver_id} value={d.driver_id}>{d.name} ({d.driver_id})</option>))}
-            </select>
+  const FormModal = ({ title, onClose }) => {
+    const [driverSearch, setDriverSearch] = useState('');
+    const [showDriverDropdown, setShowDriverDropdown] = useState(false);
+    const [selectedDriver, setSelectedDriver] = useState(null);
+    const dropdownRef = useRef(null);
+    const searchRef = useRef(null);
+
+    useEffect(() => {
+      if (formData.driver_id) {
+        const found = drivers.find(d => d.driver_id === formData.driver_id);
+        if (found) {
+          setSelectedDriver(found);
+          setDriverSearch(found.name);
+        }
+      }
+    }, []);
+
+    useEffect(() => {
+      const handleClickOutside = (e) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(e.target) &&
+            searchRef.current && !searchRef.current.contains(e.target)) {
+          setShowDriverDropdown(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filteredDrivers = useMemo(() => {
+      if (!driverSearch.trim()) return drivers.slice(0, 50);
+      const q = driverSearch.toLowerCase();
+      return drivers.filter(d =>
+        d.name.toLowerCase().includes(q) ||
+        d.driver_id.toLowerCase().includes(q) ||
+        (d.plate || '').toLowerCase().includes(q) ||
+        (d.phone || '').includes(q)
+      ).slice(0, 50);
+    }, [driverSearch]);
+
+    const handleDriverSelect = (driver) => {
+      setSelectedDriver(driver);
+      setFormData(p => ({ ...p, driver_id: driver.driver_id }));
+      setDriverSearch(driver.name);
+      setShowDriverDropdown(false);
+    };
+
+    const clearDriver = () => {
+      setSelectedDriver(null);
+      setFormData(p => ({ ...p, driver_id: '' }));
+      setDriverSearch('');
+    };
+
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+          onClick={e => e.stopPropagation()} className="w-full max-w-lg glass-card rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/50">
+            <h2 className="text-base font-bold text-zinc-100">{title}</h2>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center"><X className="w-4 h-4 text-zinc-400" /></button>
           </div>
-          <div>
-            <label className="text-label text-xs mb-1 block">Tanggal</label>
-            <input type="date" value={formData.date} onChange={e => setFormData(p => ({ ...p, date: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm [color-scheme:dark]" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="p-5 space-y-4">
             <div>
-              <label className="text-label text-xs mb-1 block">Asal</label>
-              <input type="text" value={formData.origin} onChange={e => setFormData(p => ({ ...p, origin: e.target.value }))}
-                placeholder="Terminal 1"
-                className="w-full px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm" />
+              <label className="text-label text-xs mb-1 block">Driver</label>
+              <div className="relative">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={driverSearch}
+                    onChange={(e) => {
+                      setDriverSearch(e.target.value);
+                      setShowDriverDropdown(true);
+                      if (!e.target.value) clearDriver();
+                    }}
+                    onFocus={() => setShowDriverDropdown(true)}
+                    placeholder="Cari nama, ID, plat, atau telepon driver..."
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 outline-none text-zinc-100 placeholder:text-zinc-600 text-sm transition-all"
+                  />
+                  {selectedDriver && (
+                    <button type="button" onClick={clearDriver}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-zinc-700 hover:bg-zinc-600 flex items-center justify-center transition-colors">
+                      <X className="w-3 h-3 text-zinc-300" />
+                    </button>
+                  )}
+                </div>
+                <AnimatePresence>
+                  {showDriverDropdown && !selectedDriver && (
+                    <motion.div ref={dropdownRef}
+                      initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                      className="absolute z-50 w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-h-52 overflow-y-auto scrollbar-thin">
+                      {filteredDrivers.length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-zinc-500">Tidak ada driver ditemukan</div>
+                      ) : (
+                        filteredDrivers.map(d => (
+                          <button key={d.driver_id} type="button" onClick={() => handleDriverSelect(d)}
+                            className="w-full px-4 py-2.5 text-left hover:bg-zinc-800 transition-colors border-b border-zinc-800 last:border-b-0">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="text-zinc-100 text-sm font-medium">{d.name}</span>
+                                <span className={`ml-2 text-xs font-mono ${d.category === 'premium' ? 'text-amber-400' : 'text-zinc-500'}`}>
+                                  {d.category === 'premium' ? 'PREMIUM' : 'REGULAR'}
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono text-zinc-500">{d.plate}</span>
+                            </div>
+                            <div className="text-xs text-zinc-500 mt-0.5">{d.driver_id} • {d.phone}</div>
+                          </button>
+                        ))
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {selectedDriver && (
+                <div className="mt-2 p-2.5 rounded-lg bg-emerald-900/20 border border-emerald-700/30">
+                  <div className="text-xs text-emerald-400 font-medium">{selectedDriver.name}</div>
+                  <div className="text-xs text-zinc-500">{selectedDriver.driver_id} • {selectedDriver.plate}</div>
+                </div>
+              )}
             </div>
             <div>
-              <label className="text-label text-xs mb-1 block">Tujuan</label>
-              <input type="text" value={formData.destination} onChange={e => setFormData(p => ({ ...p, destination: e.target.value }))}
-                placeholder="Terminal 3"
-                className="w-full px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm" />
+              <label className="text-label text-xs mb-1 block">Tanggal</label>
+              <input type="date" value={formData.date} onChange={e => setFormData(p => ({ ...p, date: e.target.value }))}
+                className="w-full px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm [color-scheme:dark]" />
             </div>
-          </div>
-          <div>
-            <label className="text-label text-xs mb-1 block">Detail Trip</label>
-            <input type="text" value={formData.trip_details} onChange={e => setFormData(p => ({ ...p, trip_details: e.target.value }))}
-              placeholder="Antar jemput penumpang..."
-              className="w-full px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-label text-xs mb-1 block">Jumlah Penumpang</label>
-              <input type="number" min="0" value={formData.passengers} onChange={e => setFormData(p => ({ ...p, passengers: parseInt(e.target.value) || 0 }))}
-                className="w-full px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm" />
+              <label className="text-label text-xs mb-1 block">Waktu Ritase</label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+                <select value={formData.waktu_ritase} onChange={e => setFormData(p => ({ ...p, waktu_ritase: e.target.value }))}
+                  className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm appearance-none">
+                  <option value="">-- Pilih Waktu Ritase --</option>
+                  {WAKTU_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
             </div>
             <div>
               <label className="text-label text-xs mb-1 block">Catatan</label>
               <input type="text" value={formData.notes} onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
+                placeholder="Catatan tambahan..."
                 className="w-full px-3 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 outline-none text-zinc-100 text-sm" />
             </div>
+            <button onClick={handleSave} disabled={saving || !formData.driver_id || !formData.date}
+              className="w-full py-2.5 rounded-lg bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-all disabled:opacity-50">
+              {saving ? 'Menyimpan...' : editItem ? 'Perbarui' : 'Tambah Ritase'}
+            </button>
           </div>
-          <button onClick={handleSave} disabled={saving || !formData.driver_id || !formData.date}
-            className="w-full py-2.5 rounded-lg bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-all disabled:opacity-50">
-            {saving ? 'Menyimpan...' : editItem ? 'Perbarui' : 'Tambah Ritase'}
-          </button>
-        </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
-  );
+    );
+  };
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
@@ -212,7 +310,7 @@ export default function RitaseList() {
             <input type="text" value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Cari nama driver / ID / detail trip..."
+              placeholder="Cari nama driver / ID..."
               className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 outline-none text-zinc-100 placeholder:text-zinc-600 text-sm transition-all" />
           </div>
           <div className="flex items-center gap-2">
@@ -257,10 +355,8 @@ export default function RitaseList() {
                     <th className="text-left px-4 py-3 text-label">ID</th>
                     <th className="text-left px-4 py-3 text-label">Driver</th>
                     <th className="text-left px-4 py-3 text-label">Tanggal</th>
-                    <th className="text-left px-4 py-3 text-label">Asal</th>
-                    <th className="text-left px-4 py-3 text-label">Tujuan</th>
-                    <th className="text-left px-4 py-3 text-label">Detail Trip</th>
-                    <th className="text-left px-4 py-3 text-label">Penumpang</th>
+                    <th className="text-left px-4 py-3 text-label">Waktu Ritase</th>
+                    <th className="text-left px-4 py-3 text-label">Catatan</th>
                     <th className="text-left px-4 py-3 text-label">Admin</th>
                     <th className="text-right px-4 py-3 text-label">Aksi</th>
                   </tr>
@@ -274,10 +370,16 @@ export default function RitaseList() {
                         <div className="text-xs text-zinc-500 font-mono">{item.driver_id}</div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-zinc-400">{item.date}</td>
-                      <td className="px-4 py-3 text-zinc-300 text-xs">{item.origin}</td>
-                      <td className="px-4 py-3 text-zinc-300 text-xs">{item.destination}</td>
-                      <td className="px-4 py-3 text-zinc-300 text-xs max-w-[150px] truncate">{item.trip_details}</td>
-                      <td className="px-4 py-3 text-zinc-300 text-center">{item.passengers}</td>
+                      <td className="px-4 py-3">
+                        {item.waktu_ritase ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 text-xs font-mono">
+                            <Clock className="w-3 h-3" />{item.waktu_ritase}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-600 text-xs">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-300 text-xs max-w-[150px] truncate">{item.notes || '-'}</td>
                       <td className="px-4 py-3 text-zinc-300 text-xs">{item.admin_name}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">

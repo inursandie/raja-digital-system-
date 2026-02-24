@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard, FileText, Users, ClipboardList, List,
-  LogOut, Menu, X, ChevronRight, Car, Truck
+  LogOut, Menu, X, ChevronRight, Car, Truck, UserCog
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +14,7 @@ const navItems = [
   { icon: Truck, label: 'List Ritase Driver', path: '/ritase', roles: ['admin', 'superadmin'] },
   { icon: Users, label: 'Data Driver', path: '/drivers', roles: ['superadmin'] },
   { icon: ClipboardList, label: 'Audit Log', path: '/audit', roles: ['superadmin'] },
+  { icon: UserCog, label: 'User Management', path: '/user-management', roles: ['superadmin'] },
 ];
 
 const SHIFT_COLORS = { Shift1: 'text-amber-400', Shift2: 'text-sky-400' };
