@@ -86,19 +86,24 @@ webpackConfig.devServer = (devServerConfig) => {
     devServerConfig = setupDevServer(devServerConfig);
   }
 
-  if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
-    const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
+  const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
+  devServerConfig.setupMiddlewares = (middlewares, devServer) => {
+    const { createProxyMiddleware } = require('http-proxy-middleware');
+    devServer.app.use('/api', createProxyMiddleware({
+      target: 'http://localhost:8000',
+      changeOrigin: true,
+    }));
 
-    devServerConfig.setupMiddlewares = (middlewares, devServer) => {
-      if (originalSetupMiddlewares) {
-        middlewares = originalSetupMiddlewares(middlewares, devServer);
-      }
+    if (originalSetupMiddlewares) {
+      middlewares = originalSetupMiddlewares(middlewares, devServer);
+    }
 
+    if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
       setupHealthEndpoints(devServer, healthPluginInstance);
+    }
 
-      return middlewares;
-    };
-  }
+    return middlewares;
+  };
 
   return devServerConfig;
 };
