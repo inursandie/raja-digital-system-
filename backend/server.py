@@ -942,6 +942,159 @@ async def export_audit_csv(date: Optional[str] = None, user: dict = Depends(get_
     )
 
 
+# =================== WEEKLY REPORT (LAPORAN MINGGUAN) ===================
+
+@api_router.get("/weekly-report")
+async def get_weekly_report(start_date: str = Query(...), end_date: str = Query(...), user: dict = Depends(get_current_user)):
+    drivers = await pool.fetch("SELECT driver_id, name, plate, category FROM drivers ORDER BY name")
+    sij_rows = await pool.fetch(
+        "SELECT DISTINCT driver_id, date FROM sij_transactions WHERE date >= $1 AND date <= $2 AND status = 'active'",
+        start_date, end_date
+    )
+    ritase_rows = await pool.fetch(
+        "SELECT driver_id, date, COUNT(*) as cnt FROM ritase WHERE date >= $1 AND date <= $2 GROUP BY driver_id, date",
+        start_date, end_date
+    )
+
+    sij_set = set()
+    for r in sij_rows:
+        sij_set.add((r['driver_id'], r['date']))
+
+    ritase_map = {}
+    for r in ritase_rows:
+        ritase_map[(r['driver_id'], r['date'])] = r['cnt']
+
+    from datetime import date as date_type
+    start = date_type.fromisoformat(start_date)
+    end = date_type.fromisoformat(end_date)
+    num_days = (end - start).days + 1
+    if num_days < 1 or num_days > 7:
+        num_days = 7
+    days = []
+    for i in range(num_days):
+        d = start + timedelta(days=i)
+        days.append(d.isoformat())
+
+    result = []
+    for drv in drivers:
+        did = drv['driver_id']
+        daily = []
+        total_khd = 0
+        total_rts = 0
+        for day_str in days:
+            khd = 1 if (did, day_str) in sij_set else 0
+            rts = ritase_map.get((did, day_str), 0)
+            total_khd += khd
+            total_rts += rts
+            daily.append({"date": day_str, "khd": khd, "rts": rts})
+        result.append({
+            "driver_id": did,
+            "name": drv['name'],
+            "plate": drv['plate'],
+            "category": drv['category'],
+            "daily": daily,
+            "total_khd": total_khd,
+            "total_rts": total_rts,
+        })
+
+    return {"start_date": start_date, "end_date": end_date, "days": days, "drivers": result}
+
+
+@api_router.get("/weekly-report/export/csv")
+async def export_weekly_csv(start_date: str = Query(...), end_date: str = Query(...), user: dict = Depends(get_current_user)):
+    report = await get_weekly_report(start_date, end_date, user)
+    day_labels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
+    output = io.StringIO()
+    header = ["No", "Nama Driver", "Nopol"]
+    for dl in day_labels:
+        header.extend([f"{dl} KHD", f"{dl} RTS"])
+    header.extend(["Total KHD", "Total RTS"])
+    writer = csv.writer(output)
+    writer.writerow(header)
+    for idx, drv in enumerate(report["drivers"], 1):
+        row = [idx, drv["name"], drv["plate"]]
+        for d in drv["daily"]:
+            row.extend([d["khd"], d["rts"]])
+        row.extend([drv["total_khd"], drv["total_rts"]])
+        writer.writerow(row)
+    output.seek(0)
+    fname = f"laporan_mingguan_{start_date}_{end_date}.csv"
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={fname}"}
+    )
+
+
+@api_router.get("/weekly-report/export/pdf")
+async def export_weekly_pdf(start_date: str = Query(...), end_date: str = Query(...), user: dict = Depends(get_current_user)):
+    report = await get_weekly_report(start_date, end_date, user)
+    day_labels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=15*mm, bottomMargin=10*mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('WTitle', parent=styles['Title'], fontSize=14, textColor=colors.HexColor('#1a1a1a'))
+    sub_style = ParagraphStyle('WSub', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'))
+    cell_style = ParagraphStyle('WCell', parent=styles['Normal'], fontSize=6, leading=7, alignment=1)
+    header_style = ParagraphStyle('WHead', parent=styles['Normal'], fontSize=6, leading=7, alignment=1, textColor=colors.white)
+
+    elements = [
+        Paragraph("LAPORAN MINGGUAN - RAJA Digital System", title_style),
+        Paragraph(f"Periode: {start_date} s/d {end_date}", sub_style),
+        Spacer(1, 8*mm),
+    ]
+
+    header = [Paragraph("No", header_style), Paragraph("Nama Driver", header_style), Paragraph("Nopol", header_style)]
+    for dl in day_labels:
+        header.append(Paragraph(f"{dl}<br/>KHD|RTS", header_style))
+    header.extend([Paragraph("Tot<br/>KHD", header_style), Paragraph("Tot<br/>RTS", header_style)])
+
+    tdata = [header]
+    row_colors = []
+    for idx, drv in enumerate(report["drivers"], 1):
+        row = [Paragraph(str(idx), cell_style), Paragraph(drv["name"], ParagraphStyle('WName', parent=cell_style, alignment=0)), Paragraph(drv["plate"], cell_style)]
+        for d in drv["daily"]:
+            cell_text = f"{d['khd']}|{d['rts']}"
+            if d["khd"] == 0 and d["rts"] > 0:
+                cell_text = f"<font color='red'><b>{d['khd']}|{d['rts']}</b></font>"
+            row.append(Paragraph(cell_text, cell_style))
+        khd_text = str(drv["total_khd"])
+        if drv["total_khd"] < 5:
+            khd_text = f"<font color='red'><b>{drv['total_khd']}</b></font>"
+        row.append(Paragraph(khd_text, cell_style))
+        row.append(Paragraph(str(drv["total_rts"]), cell_style))
+        tdata.append(row)
+
+        for di, d in enumerate(drv["daily"]):
+            if d["khd"] == 0 and d["rts"] > 0:
+                row_colors.append(('BACKGROUND', (3 + di, idx), (3 + di, idx), colors.HexColor('#FFD9D9')))
+
+        if drv["total_khd"] < 5:
+            row_colors.append(('BACKGROUND', (10, idx), (10, idx), colors.HexColor('#FFD9D9')))
+
+    col_widths = [18*mm, 38*mm, 22*mm] + [18*mm]*7 + [16*mm, 16*mm]
+    table = Table(tdata, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a1a')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, -1), 6),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cccccc')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]
+    style_cmds.extend(row_colors)
+    table.setStyle(TableStyle(style_cmds))
+    elements.append(table)
+    doc.build(elements)
+    buf.seek(0)
+    fname = f"laporan_mingguan_{start_date}_{end_date}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
 # =================== SEED DATA ===================
 
 ADMIN_NAMES = {"admin1": "Admin 1", "admin2": "Admin 2", "admin3": "Admin 3", "admin4": "Admin 4", "superadmin": "Super Admin"}

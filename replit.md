@@ -40,6 +40,23 @@ RAJA Digital System v1.0 - A driver management and SIJ (Surat Izin Jalan) transa
 - Super Admin: superadmin@raja.id / superadmin123
 
 ## Recent Changes
+- **2026-02-24**: Added Laporan Mingguan (Weekly Report) module
+  - Backend: GET `/api/weekly-report?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` - aggregates KHD (attendance) and RTS (trips) per driver per day
+  - Backend: GET `/api/weekly-report/export/csv` and `/api/weekly-report/export/pdf` - export with fraud highlighting
+  - Frontend: New `LaporanMingguan.jsx` page at `/laporan-mingguan` route
+  - Fraud detection: RED highlight when KHD=0 AND RTS>0 (trip without SIJ purchase)
+  - Low attendance alert: RED when Total_KHD < 5 for the week
+  - Week navigation (prev/next/this week), search/filter, CSV/PDF export
+  - Sidebar: "Laporan Mingguan" menu item (SuperAdmin only) with CalendarRange icon
+- **2026-02-24**: Renamed driver category 'Regular'/'reg' to 'Standar'/'standar'
+  - Updated all frontend files (Drivers, SIJInput, SIJList, RitaseList)
+  - Updated backend PRICE_MAP and defaults
+  - Migrated 33 drivers + 129 SIJ transactions in database
+  - Kept 'reg' as fallback alias in PRICE_MAP for safety
+- **2026-02-24**: Added User Management CRUD (SuperAdmin only)
+  - Full CRUD: GET/POST/PUT/DELETE `/api/users` endpoints
+  - bcrypt password hashing, account deletion protection
+  - New `UserManagement.jsx` page at `/user-management` route
 - **2026-02-24**: Added Ritase module + full SIJ CRUD
   - New `ritase` database table (driver_id, date, trip_details, origin, destination, passengers, notes, admin tracking)
   - Full Ritase CRUD: GET/POST/PUT/DELETE `/api/ritase` + `/api/ritase/{id}`
