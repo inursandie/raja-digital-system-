@@ -38,12 +38,24 @@ RAJA Digital System v1.0 - A driver management and SIJ (Surat Izin Jalan) transa
 - Super Admin: superadmin@raja.id / superadmin123
 
 ## Recent Changes
+- **2026-02-24**: Added export and CRUD features
+  - PDF/CSV export for Drivers table (`/api/drivers/export/csv`, `/api/drivers/export/pdf`)
+  - PDF/CSV export for SIJ transactions (`/api/sij/export/csv`, `/api/sij/export/pdf`)
+  - SIJ date range filtering (`date_from`, `date_to` params)
+  - Server-side sorting for Drivers, SIJ, Audit (`sort_by`, `sort_dir` params)
+  - SuperAdmin CRUD: Create driver (`POST /api/drivers`), Delete driver (`DELETE /api/drivers/{id}`), Delete SIJ (`DELETE /api/sij/{id}`)
+  - Audit log opened to all authenticated users
+  - Removed dashboard widgets: Proyeksi Bulan, Revenue per Admin, Ranking Driver
+  - Uses reportlab for PDF generation
 - **2026-02-24**: Migrated from MongoDB to Replit PostgreSQL
   - Replaced motor/pymongo with asyncpg
   - All MongoDB queries converted to SQL
   - Removed MONGO_URL dependency
   - Frontend API changed from env-var-based URL to relative '/api' path
   - Added CRA proxy to forward /api requests to backend on port 8000
+
+## Route Ordering Note
+In FastAPI, static routes (e.g., `/drivers/export/csv`) must be defined BEFORE parameterized routes (e.g., `/drivers/{driver_id}`) to avoid path conflicts.
 
 ## Workflow
 - Single workflow "Start application" runs both backend (uvicorn on port 8000) and frontend (craco on port 5000)
