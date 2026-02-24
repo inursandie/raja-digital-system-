@@ -1,10 +1,10 @@
-modules = ["nodejs-20", "web", "python-3.11"]
+modules = ["nodejs-20", "python-3.11", "web", "bash"]
 [agent]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "glibcLocales"]
+packages = ["cargo", "freetype", "glibcLocales", "libiconv", "libxcrypt", "postgresql", "rustc"]
 
 [userenv]
 
@@ -41,6 +41,7 @@ externalPort = 80
 [[ports]]
 localPort = 8000
 externalPort = 8000
+exposeLocalhost = true
 
 [deployment]
 deploymentTarget = "autoscale"
