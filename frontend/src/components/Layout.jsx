@@ -13,7 +13,7 @@ const navItems = [
   { icon: List, label: 'List SIJ', path: '/sij-list', roles: ['admin', 'superadmin'] },
   { icon: Truck, label: 'List Ritase Driver', path: '/ritase', roles: ['admin', 'superadmin'] },
   { icon: Users, label: 'Data Driver', path: '/drivers', roles: ['superadmin'] },
-  { icon: CalendarRange, label: 'Laporan Mingguan', path: '/laporan-mingguan', roles: ['superadmin'] },
+  { icon: CalendarRange, label: 'Laporan Mingguan', path: '/laporan-mingguan', roles: ['admin', 'superadmin'] },
   { icon: ClipboardList, label: 'Audit Log', path: '/audit', roles: ['superadmin'] },
   { icon: UserCog, label: 'User Management', path: '/user-management', roles: ['superadmin'] },
 ];

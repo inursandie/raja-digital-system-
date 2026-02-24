@@ -122,6 +122,17 @@ class RitaseUpdateRequest(BaseModel):
     notes: Optional[str] = None
 
 
+ABSENCE_REASONS = [
+    "SAKIT", "IZIN", "GANTI UNIT", "PINDAH PREMIUM", "CUTI",
+    "GANGGUAN G.A.", "TAKEDOWN", "RESIGN", "TANPA KETERANGAN",
+    "AKUN BLOKIR", "UNIT MAINTENANCE"
+]
+
+class AbsenceRequest(BaseModel):
+    driver_id: str
+    date: str
+    reason: str
+
 class UserCreateRequest(BaseModel):
     user_id: str
     name: str
@@ -942,6 +953,47 @@ async def export_audit_csv(date: Optional[str] = None, user: dict = Depends(get_
     )
 
 
+# =================== DRIVER ABSENCES ===================
+
+@api_router.get("/absences")
+async def get_absences(start_date: str = Query(...), end_date: str = Query(...), user: dict = Depends(get_current_user)):
+    rows = await pool.fetch(
+        "SELECT driver_id, date, reason FROM driver_absences WHERE date >= $1 AND date <= $2",
+        start_date, end_date
+    )
+    return rows_to_list(rows)
+
+
+@api_router.post("/absences")
+async def set_absence(data: AbsenceRequest, user: dict = Depends(require_admin)):
+    if data.reason and data.reason not in ABSENCE_REASONS:
+        raise HTTPException(status_code=400, detail="Alasan absen tidak valid")
+    existing = await pool.fetchrow(
+        "SELECT id FROM driver_absences WHERE driver_id = $1 AND date = $2",
+        data.driver_id, data.date
+    )
+    if data.reason == "":
+        if existing:
+            await pool.execute("DELETE FROM driver_absences WHERE driver_id = $1 AND date = $2", data.driver_id, data.date)
+        return {"message": "Keterangan absen dihapus"}
+    if existing:
+        await pool.execute(
+            "UPDATE driver_absences SET reason = $1 WHERE driver_id = $2 AND date = $3",
+            data.reason, data.driver_id, data.date
+        )
+    else:
+        await pool.execute(
+            "INSERT INTO driver_absences (driver_id, date, reason) VALUES ($1, $2, $3)",
+            data.driver_id, data.date, data.reason
+        )
+    return {"message": "Keterangan absen disimpan"}
+
+
+@api_router.get("/absence-reasons")
+async def get_absence_reasons(user: dict = Depends(get_current_user)):
+    return ABSENCE_REASONS
+
+
 # =================== WEEKLY REPORT (LAPORAN MINGGUAN) ===================
 
 @api_router.get("/weekly-report")
@@ -955,6 +1007,10 @@ async def get_weekly_report(start_date: str = Query(...), end_date: str = Query(
         "SELECT driver_id, date, COUNT(*) as cnt FROM ritase WHERE date >= $1 AND date <= $2 GROUP BY driver_id, date",
         start_date, end_date
     )
+    absence_rows = await pool.fetch(
+        "SELECT driver_id, date, reason FROM driver_absences WHERE date >= $1 AND date <= $2",
+        start_date, end_date
+    )
 
     sij_set = set()
     for r in sij_rows:
@@ -963,6 +1019,10 @@ async def get_weekly_report(start_date: str = Query(...), end_date: str = Query(
     ritase_map = {}
     for r in ritase_rows:
         ritase_map[(r['driver_id'], r['date'])] = r['cnt']
+
+    absence_map = {}
+    for r in absence_rows:
+        absence_map[(r['driver_id'], r['date'])] = r['reason']
 
     from datetime import date as date_type
     start = date_type.fromisoformat(start_date)
@@ -984,9 +1044,10 @@ async def get_weekly_report(start_date: str = Query(...), end_date: str = Query(
         for day_str in days:
             khd = 1 if (did, day_str) in sij_set else 0
             rts = ritase_map.get((did, day_str), 0)
+            reason = absence_map.get((did, day_str), "")
             total_khd += khd
             total_rts += rts
-            daily.append({"date": day_str, "khd": khd, "rts": rts})
+            daily.append({"date": day_str, "khd": khd, "rts": rts, "reason": reason})
         result.append({
             "driver_id": did,
             "name": drv['name'],
@@ -1010,13 +1071,29 @@ async def export_weekly_csv(start_date: str = Query(...), end_date: str = Query(
         header.extend([f"{dl} KHD", f"{dl} RTS"])
     header.extend(["Total KHD", "Total RTS"])
     writer = csv.writer(output)
-    writer.writerow(header)
-    for idx, drv in enumerate(report["drivers"], 1):
-        row = [idx, drv["name"], drv["plate"]]
-        for d in drv["daily"]:
-            row.extend([d["khd"], d["rts"]])
-        row.extend([drv["total_khd"], drv["total_rts"]])
-        writer.writerow(row)
+
+    standar = [d for d in report["drivers"] if (d.get("category") or "standar") == "standar"]
+    premium = [d for d in report["drivers"] if (d.get("category") or "standar") == "premium"]
+
+    for cat_label, cat_drivers in [("DRIVER STANDAR", standar), ("DRIVER PREMIUM", premium)]:
+        writer.writerow([])
+        writer.writerow([cat_label])
+        writer.writerow(header)
+        for idx, drv in enumerate(cat_drivers, 1):
+            row = [idx, drv["name"], drv["plate"]]
+            for d in drv["daily"]:
+                cell = d["reason"] if d["khd"] == 0 and d.get("reason") else d["khd"]
+                row.extend([cell, d["rts"]])
+            row.extend([drv["total_khd"], drv["total_rts"]])
+            writer.writerow(row)
+
+    writer.writerow([])
+    writer.writerow(["KESIMPULAN"])
+    low_standar = [d["name"] for d in standar if d["total_khd"] < 5]
+    low_premium = [d["name"] for d in premium if d["total_khd"] < 5]
+    writer.writerow([f"Driver Standar (KHD < 5): {len(low_standar)} driver -> {', '.join(low_standar) if low_standar else '-'}"])
+    writer.writerow([f"Driver Premium (KHD < 5): {len(low_premium)} driver -> {', '.join(low_premium) if low_premium else '-'}"])
+
     output.seek(0)
     fname = f"laporan_mingguan_{start_date}_{end_date}.csv"
     return StreamingResponse(
@@ -1036,59 +1113,90 @@ async def export_weekly_pdf(start_date: str = Query(...), end_date: str = Query(
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle('WTitle', parent=styles['Title'], fontSize=14, textColor=colors.HexColor('#1a1a1a'))
     sub_style = ParagraphStyle('WSub', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'))
-    cell_style = ParagraphStyle('WCell', parent=styles['Normal'], fontSize=6, leading=7, alignment=1)
+    cell_style = ParagraphStyle('WCell', parent=styles['Normal'], fontSize=5, leading=6, alignment=1)
     header_style = ParagraphStyle('WHead', parent=styles['Normal'], fontSize=6, leading=7, alignment=1, textColor=colors.white)
+    cat_title_style = ParagraphStyle('WCatTitle', parent=styles['Heading2'], fontSize=11, textColor=colors.HexColor('#1a1a1a'), spaceAfter=4*mm)
+    summary_style = ParagraphStyle('WSummary', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.HexColor('#1a1a1a'))
 
     elements = [
         Paragraph("LAPORAN MINGGUAN - RAJA Digital System", title_style),
         Paragraph(f"Periode: {start_date} s/d {end_date}", sub_style),
-        Spacer(1, 8*mm),
+        Spacer(1, 6*mm),
     ]
 
-    header = [Paragraph("No", header_style), Paragraph("Nama Driver", header_style), Paragraph("Nopol", header_style)]
-    for dl in day_labels:
-        header.append(Paragraph(f"{dl}<br/>KHD|RTS", header_style))
-    header.extend([Paragraph("Tot<br/>KHD", header_style), Paragraph("Tot<br/>RTS", header_style)])
+    standar_drivers = [d for d in report["drivers"] if (d.get("category") or "standar") == "standar"]
+    premium_drivers = [d for d in report["drivers"] if (d.get("category") or "standar") == "premium"]
 
-    tdata = [header]
-    row_colors = []
-    for idx, drv in enumerate(report["drivers"], 1):
-        row = [Paragraph(str(idx), cell_style), Paragraph(drv["name"], ParagraphStyle('WName', parent=cell_style, alignment=0)), Paragraph(drv["plate"], cell_style)]
-        for d in drv["daily"]:
-            cell_text = f"{d['khd']}|{d['rts']}"
-            if d["khd"] == 0 and d["rts"] > 0:
-                cell_text = f"<font color='red'><b>{d['khd']}|{d['rts']}</b></font>"
-            row.append(Paragraph(cell_text, cell_style))
-        khd_text = str(drv["total_khd"])
-        if drv["total_khd"] < 5:
-            khd_text = f"<font color='red'><b>{drv['total_khd']}</b></font>"
-        row.append(Paragraph(khd_text, cell_style))
-        row.append(Paragraph(str(drv["total_rts"]), cell_style))
-        tdata.append(row)
+    col_widths = [12*mm, 35*mm, 20*mm] + [20*mm]*7 + [14*mm, 14*mm]
 
-        for di, d in enumerate(drv["daily"]):
-            if d["khd"] == 0 and d["rts"] > 0:
-                row_colors.append(('BACKGROUND', (3 + di, idx), (3 + di, idx), colors.HexColor('#FFD9D9')))
+    def build_table(cat_drivers):
+        header = [Paragraph("No", header_style), Paragraph("Nama Driver", header_style), Paragraph("Nopol", header_style)]
+        for dl in day_labels:
+            header.append(Paragraph(f"{dl}<br/>KHD|RTS", header_style))
+        header.extend([Paragraph("Tot<br/>KHD", header_style), Paragraph("Tot<br/>RTS", header_style)])
+        tdata = [header]
+        row_colors = []
+        name_style = ParagraphStyle('WName', parent=cell_style, alignment=0)
+        for idx, drv in enumerate(cat_drivers, 1):
+            row = [Paragraph(str(idx), cell_style), Paragraph(drv["name"], name_style), Paragraph(drv["plate"], cell_style)]
+            for d in drv["daily"]:
+                reason = d.get("reason", "")
+                if d["khd"] == 0 and reason:
+                    cell_text = f"<font color='#666666' size='4'>{reason}</font>"
+                elif d["khd"] == 0 and d["rts"] > 0:
+                    cell_text = f"<font color='red'><b>{d['khd']}|{d['rts']}</b></font>"
+                else:
+                    cell_text = f"{d['khd']}|{d['rts']}"
+                row.append(Paragraph(cell_text, cell_style))
+            khd_text = str(drv["total_khd"])
+            if drv["total_khd"] < 5:
+                khd_text = f"<font color='red'><b>{drv['total_khd']}</b></font>"
+            row.append(Paragraph(khd_text, cell_style))
+            row.append(Paragraph(str(drv["total_rts"]), cell_style))
+            tdata.append(row)
+            for di, d in enumerate(drv["daily"]):
+                if d["khd"] == 0 and d["rts"] > 0 and not d.get("reason"):
+                    row_colors.append(('BACKGROUND', (3 + di, idx), (3 + di, idx), colors.HexColor('#FFD9D9')))
+                elif d["khd"] == 0 and d.get("reason"):
+                    row_colors.append(('BACKGROUND', (3 + di, idx), (3 + di, idx), colors.HexColor('#FFF3CD')))
+            if drv["total_khd"] < 5:
+                row_colors.append(('BACKGROUND', (10, idx), (10, idx), colors.HexColor('#FFD9D9')))
+        table = Table(tdata, colWidths=col_widths, repeatRows=1)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a1a')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTSIZE', (0, 0), (-1, -1), 5),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cccccc')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]
+        style_cmds.extend(row_colors)
+        table.setStyle(TableStyle(style_cmds))
+        return table
 
-        if drv["total_khd"] < 5:
-            row_colors.append(('BACKGROUND', (10, idx), (10, idx), colors.HexColor('#FFD9D9')))
+    elements.append(Paragraph("Driver Standar", cat_title_style))
+    elements.append(build_table(standar_drivers))
+    elements.append(Spacer(1, 8*mm))
+    elements.append(Paragraph("Driver Premium", cat_title_style))
+    elements.append(build_table(premium_drivers))
+    elements.append(Spacer(1, 8*mm))
 
-    col_widths = [18*mm, 38*mm, 22*mm] + [18*mm]*7 + [16*mm, 16*mm]
-    table = Table(tdata, colWidths=col_widths, repeatRows=1)
-    style_cmds = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a1a')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTSIZE', (0, 0), (-1, -1), 6),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cccccc')),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-    ]
-    style_cmds.extend(row_colors)
-    table.setStyle(TableStyle(style_cmds))
-    elements.append(table)
+    low_standar = [d["name"] for d in standar_drivers if d["total_khd"] < 5]
+    low_premium = [d["name"] for d in premium_drivers if d["total_khd"] < 5]
+    elements.append(Paragraph("<b>KESIMPULAN</b>", cat_title_style))
+    elements.append(Paragraph(
+        f"Driver Standar (KHD &lt; 5): <b>{len(low_standar)}</b> driver &rarr; {', '.join(low_standar) if low_standar else '-'}",
+        summary_style
+    ))
+    elements.append(Spacer(1, 2*mm))
+    elements.append(Paragraph(
+        f"Driver Premium (KHD &lt; 5): <b>{len(low_premium)}</b> driver &rarr; {', '.join(low_premium) if low_premium else '-'}",
+        summary_style
+    ))
+
     doc.build(elements)
     buf.seek(0)
     fname = f"laporan_mingguan_{start_date}_{end_date}.pdf"
@@ -1187,6 +1295,15 @@ async def create_tables():
         await pool.execute("ALTER TABLE ritase ADD COLUMN IF NOT EXISTS waktu_ritase VARCHAR(20) DEFAULT ''")
     except Exception:
         pass
+    await pool.execute("""
+        CREATE TABLE IF NOT EXISTS driver_absences (
+            id SERIAL PRIMARY KEY,
+            driver_id VARCHAR(50) NOT NULL,
+            date VARCHAR(10) NOT NULL,
+            reason VARCHAR(50) NOT NULL,
+            UNIQUE(driver_id, date)
+        )
+    """)
 
 
 async def seed_initial_data():
