@@ -7,12 +7,6 @@ import { motion } from 'framer-motion';
 
 const BG_URL = "https://images.unsplash.com/photo-1483729558449-99ef09a8c325?crop=entropy&cs=srgb&fm=jpg&w=1920&q=80";
 
-const TEST_ACCOUNTS = [
-  { email: 'admin1@raja.id', role: 'Admin 1 (Shift 1)', color: 'text-amber-400' },
-  { email: 'admin3@raja.id', role: 'Admin 3 (Shift 2)', color: 'text-sky-400' },
-  { email: 'superadmin@raja.id', role: 'Super Admin', color: 'text-emerald-400' },
-];
-
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +18,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Email dan password harus diisi');
+      toast.error('Username dan password harus diisi');
       return;
     }
     setLoading(true);
@@ -37,11 +31,6 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillAccount = (acc) => {
-    setEmail(acc.email);
-    setPassword(acc.email.includes('superadmin') ? 'superadmin123' : 'admin123');
   };
 
   return (
@@ -82,13 +71,13 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4" data-testid="login-form">
             <div>
-              <label className="text-label block mb-1.5">Email</label>
+              <label className="text-label block mb-1.5">Username</label>
               <input
                 data-testid="email-input"
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="admin1@raja.id"
+                placeholder="Masukkan username"
                 className="w-full px-4 py-2.5 rounded-lg bg-zinc-950/70 border border-zinc-700 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 outline-none text-zinc-100 placeholder:text-zinc-600 text-sm transition-all"
               />
             </div>
@@ -129,25 +118,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Test accounts */}
-          <div className="mt-6 pt-5 border-t border-zinc-800">
-            <p className="text-label mb-3">Akun Test</p>
-            <div className="space-y-1.5">
-              {TEST_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  onClick={() => fillAccount(acc)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-900/50 hover:bg-zinc-800/50 border border-zinc-800 hover:border-zinc-700 transition-all"
-                >
-                  <span className={`text-xs font-mono ${acc.color}`}>{acc.email}</span>
-                  <span className="text-xs text-zinc-500">{acc.role}</span>
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-zinc-600 mt-2 text-center">
-              Admin: admin123 &nbsp;|&nbsp; SuperAdmin: superadmin123
-            </p>
-          </div>
         </div>
       </motion.div>
     </div>
