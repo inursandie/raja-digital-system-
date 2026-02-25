@@ -39,7 +39,7 @@ const formatRupiah = (v) =>
   }).format(v);
 
 // Browser Print Receipt (fallback)
-const printReceiptBrowser = (tx, driverName) => {
+const printReceiptBrowser = (tx, driverName, nopol) => {
   const amount = tx.amount || 40000;
   const amountFormatted = new Intl.NumberFormat("id-ID").format(amount);
 
@@ -49,19 +49,18 @@ const printReceiptBrowser = (tx, driverName) => {
     <div class="ticket">
       <div class="header">
         <img src="${RAJA_LOGO_URL}" alt="RAJA Logo" style="width:50mm; height:auto; margin: 0 auto 8px; display:block;" onerror="this.style.display='none'" />
-        <div class="subtitle">SIJ - Soekarno-Hatta Airport</div>
+        <div class="subtitle">SURAT IZIN JALAN - KOPERASI RAJA</div>
       </div>
       <div class="tx-id">${tx.transaction_id}</div>
       <table class="details">
-        <tr><td>Driver</td><td>${driverName}</td></tr>
-        <tr><td>Kategori</td><td>${tx.category === "premium" ? "PREMIUM" : "STANDAR"}</td></tr>
-        <tr><td>Tanggal</td><td>${tx.date}</td></tr>
-        <tr><td>Jam</td><td>${tx.time}</td></tr>
-        <tr><td>Admin</td><td>${tx.admin_name}</td></tr>
-        <tr><td>Lembar</td><td>${i + 1} / ${tx.sheets}</td></tr>
-        <tr><td>Jumlah</td><td>Rp ${amountFormatted}</td></tr>
+        <tr><td>Driver</td><td>: ${driverName}</td></tr>
+        <tr><td>Plat No.</td><td>: ${nopol}</td></tr>
+        <tr><td>Kategori</td><td>: ${tx.category === "premium" ? "Grab Premium" : "Grab Standar"}</td></tr>
+        <tr><td>Tanggal</td><td>: ${tx.date} | ${tx.time.substring(0, 5)}</td></tr>
+        <tr><td>Admin</td><td>: ${tx.admin_name}</td></tr>
       </table>
-      <div class="footer">QRIS: ${tx.qris_ref}</div>
+      <div class="subtitle" style="text-align: center !important; margin-top: 8px;">Harap selalu menjaga performa, pelayanan dan kedisiplinan dalam bekerja.</div>
+      <div class="footer">Ref. : ${tx.qris_ref}</div>
     </div>
   `,
   ).join("");
@@ -72,12 +71,13 @@ const printReceiptBrowser = (tx, driverName) => {
     <head>
       <title>SIJ Receipt - ${tx.transaction_id}</title>
       <style>
+      * { color: #000 !important; font-weight: bold !important; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Courier New', monospace; background: #f5f5f5; padding: 10px; }
         .ticket { width: 58mm; background: white; border: 2px dashed #333; padding: 8px; margin: 10px auto; page-break-after: always; }
         .header { text-align: center; margin-bottom: 8px; }
         .title { font-size: 12px; font-weight: bold; letter-spacing: 1px; }
-        .subtitle { font-size: 8px; color: #666; }
+        .subtitle { font-size: 8px; color: black; }
         .tx-id { font-size: 11px; font-weight: bold; text-align: center; letter-spacing: 1px; border: 1px solid #000; padding: 4px; margin: 6px 0; background: #f0f0f0; }
         .details { width: 100%; font-size: 9px; border-collapse: collapse; }
         .details td { padding: 2px 3px; }
@@ -427,7 +427,8 @@ export default function SIJInput() {
                                     }
                                   >
                                     {formatRupiah(
-                                      PRICE_MAP[d.category] || PRICE_MAP.standar,
+                                      PRICE_MAP[d.category] ||
+                                        PRICE_MAP.standar,
                                     )}
                                   </span>
                                 </div>
@@ -731,7 +732,12 @@ export default function SIJInput() {
                   <button
                     data-testid="print-browser-button"
                     onClick={() =>
-                      printReceiptBrowser(result, result.driver_name)
+                      printReceiptBrowser(
+                        result,
+                        result.driver_name,
+                        drivers.find((d) => d.name === result.driver_name)
+                          ?.plate || "-",
+                      )
                     }
                     className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-all"
                   >
