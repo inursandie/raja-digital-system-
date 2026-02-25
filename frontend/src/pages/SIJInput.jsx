@@ -73,17 +73,30 @@ const printReceiptBrowser = (tx, driverName, nopol) => {
       <style>
       * { color: #000 !important; font-weight: bold !important; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Courier New', monospace; background: #f5f5f5; padding: 10px; }
+        body { 
+    font-family: 'Arial Narrow', 'Helvetica Condensed', Arial, sans-serif !important; 
+    font-stretch: condensed; 
+    background: #f5f5f5; 
+    padding: 5px 15px !important; 
+    font-weight: bold !important; 
+    color: #000 !important; 
+}
         .ticket { width: 58mm; background: white; border: 2px dashed #333; padding: 8px; margin: 10px auto; page-break-after: always; }
         .header { text-align: center; margin-bottom: 8px; }
         .title { font-size: 12px; font-weight: bold; letter-spacing: 1px; }
-        .subtitle { font-size: 8px; color: black; }
+        .subtitle { font-size: 12px; color: black; }
         .tx-id { font-size: 11px; font-weight: bold; text-align: center; letter-spacing: 1px; border: 1px solid #000; padding: 4px; margin: 6px 0; background: #f0f0f0; }
-        .details { width: 100%; font-size: 9px; border-collapse: collapse; }
-        .details td { padding: 2px 3px; }
+        .details { 
+    width: 100%; 
+    font-size: 14px !important; 
+    margin-bottom: 10px; 
+}
+.details td { 
+    padding: 4px 0 !important; 
+}
         .details td:first-child { color: #666; width: 35%; }
         .details td:last-child { font-weight: bold; }
-        .footer { font-size: 8px; color: #888; text-align: center; margin-top: 6px; border-top: 1px dashed #ccc; padding-top: 4px; }
+        .footer { font-size: 10px; color: #888; text-align: center; margin-top: 6px; border-top: 1px dashed #ccc; padding-top: 4px; }
         @media print { body { background: white; padding: 0; } .no-print { display: none; } }
       </style>
     </head>
